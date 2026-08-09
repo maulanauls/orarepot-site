@@ -31,8 +31,8 @@ const plans = [
 ];
 
 const faqs = [
-  ['Apakah Blastly menggunakan WABA resmi?', 'Ya. Blastly menggunakan Official WABA (WhatsApp Business Account) dan WhatsApp Business API dari Meta agar komunikasi bisnis berjalan lewat jalur resmi dan terpercaya.'],
-  ['Apakah broadcast Blastly anti banned?', 'Dengan Official WABA, risiko akun terkena banned jauh lebih rendah dibanding jalur tidak resmi. Tetap kirim pesan yang relevan, ke pelanggan yang memberikan izin, dan ikuti kebijakan Meta karena tidak ada layanan yang dapat menjamin bebas banned 100% untuk semua kondisi.'],
+  ['Apakah Ora Repot menggunakan WABA resmi?', 'Ya. Ora Repot menggunakan Official WABA (WhatsApp Business Account) dan WhatsApp Business API dari Meta agar komunikasi bisnis berjalan lewat jalur resmi dan terpercaya.'],
+  ['Apakah broadcast Ora Repot anti banned?', 'Dengan Official WABA, risiko akun terkena banned jauh lebih rendah dibanding jalur tidak resmi. Tetap kirim pesan yang relevan, ke pelanggan yang memberikan izin, dan ikuti kebijakan Meta karena tidak ada layanan yang dapat menjamin bebas banned 100% untuk semua kondisi.'],
   ['Apa bedanya paket Broadcast dan Full?', 'Paket Broadcast berfokus pada kebutuhan kampanye pesan. Paket Full menggabungkan broadcast, OTP, dashboard, dan perlindungan operasional dalam satu langganan.'],
   ['Berapa lama proses mulai?', 'Setelah mengisi kontak, tim kami akan menghubungi Anda untuk membantu menyiapkan akun dan kebutuhan bisnis.'],
 ];
@@ -43,7 +43,7 @@ function scrollTo(id: string) {
 
 function Brand() {
   return <a className="brand" href="#top" onClick={(e) => { e.preventDefault(); scrollTo('top'); }} data-testid="link-brand">
-    <span className="brand-mark"><MessageCircle size={17} strokeWidth={2.8} /></span><span>blastly</span>
+    <span className="brand-mark"><MessageCircle size={17} strokeWidth={2.8} /></span><span className="brand-lockup"><strong>Ora Repot</strong><small>Pesan WhatsApp</small></span>
   </a>;
 }
 
@@ -61,7 +61,7 @@ function Navbar({ onContact }: { onContact: (plan?: Plan) => void }) {
       </nav>
       <div className="nav-actions">
         <button className="nav-login" onClick={() => onContact()} data-testid="button-login">Masuk</button>
-        <button className="nav-cta" onClick={() => onContact()} data-testid="button-nav-contact">Coba Blastly <ArrowRight size={14} /></button>
+        <button className="nav-cta" onClick={() => onContact()} data-testid="button-nav-contact">Coba Ora Repot <ArrowRight size={14} /></button>
       </div>
       <button className="menu-toggle" onClick={() => setOpen(!open)} aria-label="Buka menu" data-testid="button-mobile-menu">{open ? <X /> : <Menu />}</button>
     </div>
@@ -70,7 +70,7 @@ function Navbar({ onContact }: { onContact: (plan?: Plan) => void }) {
       <a href="#cara-kerja" onClick={(e) => { e.preventDefault(); go('cara-kerja'); }} data-testid="mobile-link-cara-kerja">Cara kerja</a>
       <a href="#harga" onClick={(e) => { e.preventDefault(); go('harga'); }} data-testid="mobile-link-harga">Harga</a>
       <a href="#faq" onClick={(e) => { e.preventDefault(); go('faq'); }} data-testid="mobile-link-faq">FAQ</a>
-      <button className="nav-cta" onClick={() => { setOpen(false); onContact(); }} data-testid="button-mobile-contact">Coba Blastly <ArrowRight size={14} /></button>
+      <button className="nav-cta" onClick={() => { setOpen(false); onContact(); }} data-testid="button-mobile-contact">Coba Ora Repot <ArrowRight size={14} /></button>
     </nav>}
   </header>;
 }
@@ -80,7 +80,7 @@ function DashboardVisual() {
     <div className="dashboard">
       <div className="dash-top"><div className="window-dots"><i /><i /><i /></div><div className="dash-user"><span>Halo, Rani</span><span className="user-avatar">R</span></div></div>
       <div className="dash-body">
-        <aside className="dash-side"><p className="side-label">BLASTLY</p><div className="side-item active"><LayoutDashboard /> Ringkasan</div><div className="side-item"><Send /> Broadcast</div><div className="side-item"><Users /> Kontak</div><div className="side-item"><FileCheck2 /> OTP</div></aside>
+        <aside className="dash-side"><p className="side-label">ORA REPOT</p><div className="side-item active"><LayoutDashboard /> Ringkasan</div><div className="side-item"><Send /> Broadcast</div><div className="side-item"><Users /> Kontak</div><div className="side-item"><FileCheck2 /> OTP</div></aside>
         <main className="dash-main"><div className="dash-main-head"><div><h3>Ringkasan kampanye</h3><p>Performa pesan minggu ini</p></div><button className="dash-button" data-testid="button-dashboard-create">+ Kampanye</button></div>
           <div className="dash-stats"><div className="stat-card"><span className="stat-label">Pesan terkirim</span><strong className="stat-value">12.480</strong></div><div className="stat-card"><span className="stat-label">Terbaca</span><strong className="stat-value green">96,8%</strong></div><div className="stat-card"><span className="stat-label">Sukses OTP</span><strong className="stat-value">98,4%</strong></div></div>
           <div className="chart-card"><div className="chart-head"><span>Aktivitas broadcast</span><span>+24,6% minggu ini</span></div><div className="chart"><i className="bar" /><i className="bar" /><i className="bar" /><i className="bar" /><i className="bar" /><i className="bar" /><i className="bar" /></div><div className="chart-days"><span>Sen</span><span>Sel</span><span>Rab</span><span>Kam</span><span>Jum</span><span>Sab</span><span>Min</span></div></div>
@@ -95,7 +95,7 @@ function Hero({ onContact }: { onContact: (plan?: Plan) => void }) {
   return <section className="hero" id="top">
     <Navbar onContact={onContact} />
       <div className="container hero-grid">
-      <div className="reveal"><span className="eyebrow"><i className="eyebrow-dot" /> Official WABA untuk bisnis Indonesia</span><h1>Broadcast resmi.<br /><em>Bisnis lebih aman.</em></h1><p className="hero-copy">Blastly menggunakan Official WABA dan WhatsApp Business API terpercaya dari Meta untuk membantu Anda mengirim broadcast dengan risiko banned yang jauh lebih rendah — plus OTP resmi untuk verifikasi pelanggan.</p><div className="hero-actions"><button className="button-primary" onClick={() => onContact()} data-testid="button-hero-contact">Mulai dari sini <ArrowRight size={16} /></button><a className="button-ghost" href="#cara-kerja" onClick={(e) => { e.preventDefault(); scrollTo('cara-kerja'); }} data-testid="link-hero-how"><MousePointer2 size={15} /> Lihat cara kerja</a></div><p className="hero-note"><ShieldCheck size={15} /> Official WABA Meta · Anti-banned lebih aman · Dukungan manusia</p></div>
+      <div className="reveal"><span className="eyebrow"><i className="eyebrow-dot" /> Official WABA untuk bisnis Indonesia</span><h1>Broadcast resmi.<br /><em>Bisnis lebih aman.</em></h1><p className="hero-copy">Ora Repot menggunakan Official WABA dan WhatsApp Business API terpercaya dari Meta untuk membantu Anda mengirim broadcast dengan risiko banned yang jauh lebih rendah — plus OTP resmi untuk verifikasi pelanggan.</p><div className="hero-actions"><button className="button-primary" onClick={() => onContact()} data-testid="button-hero-contact">Mulai dari sini <ArrowRight size={16} /></button><a className="button-ghost" href="#cara-kerja" onClick={(e) => { e.preventDefault(); scrollTo('cara-kerja'); }} data-testid="link-hero-how"><MousePointer2 size={15} /> Lihat cara kerja</a></div><p className="hero-note"><ShieldCheck size={15} /> Official WABA Meta · Anti-banned lebih aman · Dukungan manusia</p></div>
       <div className="reveal"><DashboardVisual /></div>
     </div>
   </section>;
@@ -106,7 +106,7 @@ function TrustStrip() {
 }
 
 function ValueSection() {
-  return <section className="section value-section" id="solusi"><div className="container"><div className="value-head reveal"><div><span className="section-kicker">Kenapa Blastly</span><h2 className="section-heading">Pesan terkirim.<br />Reputasi tetap terjaga.</h2></div><p className="section-lead">Broadcast yang baik bukan soal seberapa banyak dikirim, tapi seberapa siap bisnis Anda untuk dipercaya.</p></div><div className="value-grid">
+  return <section className="section value-section" id="solusi"><div className="container"><div className="value-head reveal"><div><span className="section-kicker">Kenapa Ora Repot</span><h2 className="section-heading">Pesan terkirim.<br />Reputasi tetap terjaga.</h2></div><p className="section-lead">Broadcast yang baik bukan soal seberapa banyak dikirim, tapi seberapa siap bisnis Anda untuk dipercaya.</p></div><div className="value-grid">
     <article className="value-card reveal"><span className="value-number">01</span><span className="value-icon"><ShieldCheck size={20} /></span><h3>Official WABA yang terpercaya</h3><p>Gunakan WhatsApp Business API resmi dari Meta untuk komunikasi yang lebih aman, profesional, dan siap berkembang.</p></article>
     <article className="value-card reveal"><span className="value-number">02</span><span className="value-icon"><Zap size={20} /></span><h3>Risiko banned jauh lebih rendah</h3><p>Kirim broadcast lewat jalur resmi dengan kontrol kampanye yang lebih baik, bukan sistem tidak resmi yang rawan.</p></article>
     <article className="value-card reveal"><span className="value-number">03</span><span className="value-icon"><LayoutDashboard size={20} /></span><h3>Satu dashboard, semua terlihat</h3><p>Performa kampanye, kontak, dan OTP berada di satu tempat yang mudah dipahami tim.</p></article>
@@ -114,11 +114,11 @@ function ValueSection() {
 }
 
 function ProofSection() {
-  return <section className="section proof-section" id="cara-kerja"><div className="container split-grid"><div className="proof-art reveal"><span className="art-label">Kampanye yang terasa personal</span><h3>Pesan tepat waktu, masuk dengan cara yang tepat.</h3><div className="message-stack"><div className="message">Hai, Kak Dita. Koleksi baru kami sudah hadir.<small>Blastly · 09.42</small></div><div className="message sent">Wah, boleh lihat katalognya?<small>Dita · 09.43 · ✓✓</small></div><div className="message">Tentu. Ini link khusus untuk Kak Dita.<small>Blastly · 09.43</small></div></div></div><div className="reveal"><span className="section-kicker">Cara kerja</span><h2 className="section-heading">Dari daftar kontak<br />menjadi percakapan.</h2><ul className="proof-list"><li><i className="check"><Check size={13} strokeWidth={3} /></i><div><strong>Siapkan audiens</strong><span>Impor kontak dan kelompokkan sesuai kebutuhan kampanye Anda.</span></div></li><li><i className="check"><Check size={13} strokeWidth={3} /></i><div><strong>Tulis dengan niat baik</strong><span>Buat template yang jelas, relevan, dan nyaman dibaca pelanggan.</span></div></li><li><i className="check"><Check size={13} strokeWidth={3} /></i><div><strong>Kirim lalu pelajari</strong><span>Pantau performa di dashboard dan gunakan insight untuk langkah berikutnya.</span></div></li></ul></div></div></section>;
+  return <section className="section proof-section" id="cara-kerja"><div className="container split-grid"><div className="proof-art reveal"><span className="art-label">Kampanye yang terasa personal</span><h3>Pesan tepat waktu, masuk dengan cara yang tepat.</h3><div className="message-stack"><div className="message">Hai, Kak Dita. Koleksi baru kami sudah hadir.<small>Ora Repot · 09.42</small></div><div className="message sent">Wah, boleh lihat katalognya?<small>Dita · 09.43 · ✓✓</small></div><div className="message">Tentu. Ini link khusus untuk Kak Dita.<small>Ora Repot · 09.43</small></div></div></div><div className="reveal"><span className="section-kicker">Cara kerja</span><h2 className="section-heading">Dari daftar kontak<br />menjadi percakapan.</h2><ul className="proof-list"><li><i className="check"><Check size={13} strokeWidth={3} /></i><div><strong>Siapkan audiens</strong><span>Impor kontak dan kelompokkan sesuai kebutuhan kampanye Anda.</span></div></li><li><i className="check"><Check size={13} strokeWidth={3} /></i><div><strong>Tulis dengan niat baik</strong><span>Buat template yang jelas, relevan, dan nyaman dibaca pelanggan.</span></div></li><li><i className="check"><Check size={13} strokeWidth={3} /></i><div><strong>Kirim lalu pelajari</strong><span>Pantau performa di dashboard dan gunakan insight untuk langkah berikutnya.</span></div></li></ul></div></div></section>;
 }
 
 function OtpSection() {
-  return <section className="section otp-section"><div className="container split-grid"><div className="otp-copy reveal"><span className="section-kicker">Official WABA + OTP Meta</span><h2 className="section-heading">Verifikasi cepat membangun rasa aman.</h2><p className="section-lead">Jangan biarkan proses masuk yang rumit membuat pelanggan pergi. Gunakan OTP resmi Meta melalui WhatsApp Business API terpercaya.</p><div className="otp-points"><div className="otp-point"><LockKeyhole size={19} /><strong>Aman untuk pelanggan</strong><span>Kode verifikasi dikirim melalui jalur resmi WABA.</span></div><div className="otp-point"><Clock3 size={19} /><strong>Terasa instan</strong><span>Alur masuk yang singkat meningkatkan konversi.</span></div></div></div><div className="otp-panel reveal"><span className="panel-tag">Official WABA</span><div className="phone"><div className="phone-screen"><div className="phone-notch" /><div className="phone-body"><span className="phone-brand">blastly / verify</span><h4>Masukkan kode</h4><p>Kami sudah mengirim 6 digit kode ke WhatsApp Anda.</p><div className="otp-code"><b>8</b><b>2</b><b>4</b><b>1</b><b>0</b><b>7</b></div><span className="phone-link">Kirim ulang kode dalam 00:24</span></div></div></div><span className="panel-tag bottom"><CircleCheck size={13} /> Terverifikasi</span></div></div></section>;
+  return <section className="section otp-section"><div className="container split-grid"><div className="otp-copy reveal"><span className="section-kicker">Official WABA + OTP Meta</span><h2 className="section-heading">Verifikasi cepat membangun rasa aman.</h2><p className="section-lead">Jangan biarkan proses masuk yang rumit membuat pelanggan pergi. Gunakan OTP resmi Meta melalui WhatsApp Business API terpercaya.</p><div className="otp-points"><div className="otp-point"><LockKeyhole size={19} /><strong>Aman untuk pelanggan</strong><span>Kode verifikasi dikirim melalui jalur resmi WABA.</span></div><div className="otp-point"><Clock3 size={19} /><strong>Terasa instan</strong><span>Alur masuk yang singkat meningkatkan konversi.</span></div></div></div><div className="otp-panel reveal"><span className="panel-tag">Official WABA</span><div className="phone"><div className="phone-screen"><div className="phone-notch" /><div className="phone-body"><span className="phone-brand">ora repot / verify</span><h4>Masukkan kode</h4><p>Kami sudah mengirim 6 digit kode ke WhatsApp Anda.</p><div className="otp-code"><b>8</b><b>2</b><b>4</b><b>1</b><b>0</b><b>7</b></div><span className="phone-link">Kirim ulang kode dalam 00:24</span></div></div></div><span className="panel-tag bottom"><CircleCheck size={13} /> Terverifikasi</span></div></div></section>;
 }
 
 function Pricing({ billing, setBilling, onContact }: { billing: Billing; setBilling: (b: Billing) => void; onContact: (plan?: Plan) => void }) {
