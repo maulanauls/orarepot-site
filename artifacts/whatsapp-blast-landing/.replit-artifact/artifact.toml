@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "WhatsApp Blast Landing Page"
+description = "Landing page responsif untuk layanan WhatsApp Blast anti banned dan WhatsApp OTP resmi Meta, dengan penjelasan manfaat dan pilihan paket berlangganan."
+version = "1.0.0"
+id = "artifacts/whatsapp-blast-landing"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 25464
+
+[services.development]
+run = "pnpm --filter @workspace/whatsapp-blast-landing run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/whatsapp-blast-landing", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/whatsapp-blast-landing/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25464"
+BASE_PATH = "/"
