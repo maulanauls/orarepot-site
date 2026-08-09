@@ -1,0 +1,1 @@
+- [Blastly trust messaging](blastly-trust-messaging.md) — emphasize Official WABA and WhatsApp Business API while qualifying anti-banned claims under Meta policies.

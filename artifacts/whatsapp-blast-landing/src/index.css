@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @plugin "@tailwindcss/typography";
@@ -48,9 +48,9 @@
   --muted-foreground: 173 11% 42%;
   --accent: 43 95% 55%;
   --accent-foreground: 175 30% 12%;
-  --app-font-sans: 'DM Sans', sans-serif;
+  --app-font-sans: 'Manrope', sans-serif;
   --app-font-serif: Georgia, serif;
-  --app-font-mono: 'Space Grotesk', monospace;
+  --app-font-mono: 'Manrope', sans-serif;
   --radius: 1rem;
   --shadow-soft: 0 18px 50px rgba(18, 58, 51, .10);
   --shadow-deep: 0 28px 80px rgba(10, 46, 39, .22);
@@ -216,6 +216,38 @@
 .reveal { opacity: 0; transform: translateY(22px); transition: opacity .7s ease, transform .7s ease; }.reveal.visible { opacity: 1; transform: translateY(0); }
 .modal-backdrop { position: fixed; z-index: 50; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(7,44,35,.62); backdrop-filter: blur(7px); animation: fade-in .2s ease; }.contact-modal { width: min(480px, 100%); background: var(--cream); color: var(--ink); border-radius: 18px; box-shadow: 0 30px 80px rgba(0,0,0,.25); padding: 29px; position: relative; animation: modal-in .25s ease; }.modal-close { position: absolute; top: 18px; right: 18px; display: grid; place-items: center; width: 30px; height: 30px; border: 0; cursor: pointer; background: #e4eee3; color: var(--ink); border-radius: 50%; }.contact-modal h2 { margin: 0; font: 700 1.8rem 'Space Grotesk'; letter-spacing: -.06em; }.modal-intro { margin: 8px 0 22px; color: #708178; font-size: .8rem; line-height: 1.5; }.contact-form { display: grid; gap: 13px; }.form-label { display: grid; gap: 6px; color: #4c665d; font-size: .7rem; font-weight: 700; }.form-input { width: 100%; box-sizing: border-box; padding: 11px 12px; border-radius: 8px; border: 1px solid #cfddd0; outline: none; background: #fffdf7; color: var(--ink); font-size: .82rem; transition: border .2s ease, box-shadow .2s ease; }.form-input:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(15,143,104,.12); }.form-submit { border: 0; background: var(--green); color: var(--cream); border-radius: 8px; padding: 12px; cursor: pointer; font-size: .8rem; font-weight: 700; margin-top: 5px; }.form-submit:hover { background: var(--green-deep); }.form-success { text-align: center; padding: 30px 10px 12px; }.success-icon { display: grid; place-items: center; width: 52px; height: 52px; margin: 0 auto 16px; border-radius: 50%; background: #ccebd9; color: var(--green); }.form-success h3 { margin: 0; font: 700 1.5rem 'Space Grotesk'; }.form-success p { color: #708178; font-size: .82rem; line-height: 1.5; }
 .mobile-nav { display: none; }
+
+/* Manrope keeps the rounded, friendly rhythm of Google's Android product typography. */
+.blastly-page .brand,
+.blastly-page .hero h1,
+.blastly-page .side-label,
+.blastly-page .dash-main h3,
+.blastly-page .stat-value,
+.blastly-page .float-tag strong,
+.blastly-page .trust-logos,
+.blastly-page .section-kicker,
+.blastly-page .section-heading,
+.blastly-page .value-number,
+.blastly-page .value-card h3,
+.blastly-page .proof-art h3,
+.blastly-page .proof-list strong,
+.blastly-page .otp-point strong,
+.blastly-page .otp-panel::before,
+.blastly-page .phone-brand,
+.blastly-page .phone-body h4,
+.blastly-page .otp-code b,
+.blastly-page .panel-tag,
+.blastly-page .plan-name,
+.blastly-page .price,
+.blastly-page .quote-card p,
+.blastly-page .person-avatar,
+.blastly-page .person strong,
+.blastly-page .faq-question,
+.blastly-page .closing h2,
+.blastly-page .contact-modal h2,
+.blastly-page .form-success h3 {
+  font-family: 'Manrope', sans-serif;
+}
 
 @keyframes float-card { 0%,100% { transform: rotate(2.1deg) translateY(0); } 50% { transform: rotate(2.1deg) translateY(-9px); } }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } } @keyframes modal-in { from { opacity: 0; transform: translateY(9px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
