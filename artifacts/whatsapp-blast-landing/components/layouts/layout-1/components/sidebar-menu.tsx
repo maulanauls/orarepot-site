@@ -113,7 +113,7 @@ export function SidebarMenu() {
         >
           <Link
             href={item.path || '#'}
-            className="flex items-center justify-between grow gap-2"
+            className="flex items-center grow gap-2.5"
           >
             {item.icon && <item.icon data-slot="accordion-menu-icon" />}
             <span data-slot="accordion-menu-title">{labelFor(item)}</span>

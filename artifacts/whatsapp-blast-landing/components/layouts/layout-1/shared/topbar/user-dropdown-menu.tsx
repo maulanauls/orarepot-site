@@ -20,6 +20,8 @@ import Link from 'next/link';
 import { useLocale } from '@/components/i18n/locale-provider';
 import { toAbsoluteUrl } from '@/lib/helpers';
 import { isLocale, type Locale } from '@/lib/i18n/config';
+import { dashboardPoppins } from '@/lib/fonts/dashboard';
+import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {

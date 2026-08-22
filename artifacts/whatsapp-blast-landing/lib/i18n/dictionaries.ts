@@ -340,7 +340,7 @@ export const id: Messages = {
     n5Body: 'Nomor bisnis WhatsApp Anda berhasil diverifikasi di Ora Repot.',
     n5Time: '3 hari lalu',
     chatTitle: 'Support Ora Repot',
-    chatSubtitle: 'ADMIN LIVE CHAT · PREVIEW',
+    chatSubtitle: 'Admin live chat · preview',
     chatBanner:
       'Chat ini akan terintegrasi dengan live chat admin Ora Repot. Saat ini masih UI preview.',
     chatPlaceholder: 'Tulis pesan ke admin…',
@@ -693,7 +693,7 @@ export const en: Messages = {
     n5Body: 'Your WhatsApp business number was verified on Ora Repot.',
     n5Time: '3 days ago',
     chatTitle: 'Ora Repot Support',
-    chatSubtitle: 'ADMIN LIVE CHAT · PREVIEW',
+    chatSubtitle: 'Admin live chat · preview',
     chatBanner:
       'This chat will connect to Ora Repot admin live chat. UI preview for now.',
     chatPlaceholder: 'Message admin…',

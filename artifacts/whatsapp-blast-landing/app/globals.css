@@ -159,54 +159,28 @@
   button, a { -webkit-tap-highlight-color: transparent; }
 }
 
-/** Poppins for dashboard/admin — shell + portaled overlays */
-.dashboard-app,
-.dashboard-app *:not([class*='lucide']):not(svg):not(path) {
-  font-family: var(--font-poppins), ui-sans-serif, system-ui, sans-serif !important;
-}
-
+/** Poppins for dashboard/admin — shell + portaled overlays (beats Silka) */
 html.dashboard-font {
-  --font-sans: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
-  font-family: var(--font-poppins), ui-sans-serif, system-ui, sans-serif !important;
+  --font-sans: var(--font-poppins), 'Poppins', sans-serif;
 }
 
-html.dashboard-font body {
-  font-family: var(--font-poppins), ui-sans-serif, system-ui, sans-serif !important;
-}
-
-html.dashboard-font body h1,
-html.dashboard-font body h2,
-html.dashboard-font body h3,
-html.dashboard-font body h4,
-html.dashboard-font body h5,
-html.dashboard-font body h6,
-html.dashboard-font body button,
-html.dashboard-font body a,
-html.dashboard-font body input,
-html.dashboard-font body textarea,
-html.dashboard-font body select,
-html.dashboard-font body span,
-html.dashboard-font body p,
-html.dashboard-font body label,
-html.dashboard-font body li {
-  font-family: inherit !important;
-}
-
-/* Portaled overlays while dashboard is active */
+html.dashboard-font body,
+.dashboard-app,
+html.dashboard-font body *:not(svg):not(path),
+.dashboard-app *:not(svg):not(path),
 html.dashboard-font [data-slot='dialog-content'],
 html.dashboard-font [data-slot='dialog-content'] *:not(svg):not(path),
 html.dashboard-font [data-slot='sheet-content'],
 html.dashboard-font [data-slot='sheet-content'] *:not(svg):not(path),
 html.dashboard-font [data-slot='dropdown-menu-content'],
 html.dashboard-font [data-slot='dropdown-menu-content'] *:not(svg):not(path),
+html.dashboard-font [data-slot='dropdown-menu-sub-content'],
+html.dashboard-font [data-slot='dropdown-menu-sub-content'] *:not(svg):not(path),
 html.dashboard-font [data-slot='popover-content'],
 html.dashboard-font [data-slot='popover-content'] *:not(svg):not(path),
 html.dashboard-font [data-slot='select-content'],
-html.dashboard-font [data-slot='select-content'] *:not(svg):not(path),
-html.dashboard-font [data-slot='tabs-list'],
-html.dashboard-font [data-slot='tabs-list'] *:not(svg):not(path),
-html.dashboard-font [data-slot='tabs-trigger'] {
-  font-family: var(--font-poppins), ui-sans-serif, system-ui, sans-serif !important;
+html.dashboard-font [data-slot='select-content'] *:not(svg):not(path) {
+  font-family: var(--font-poppins), 'Poppins', sans-serif !important;
 }
 
 /* Kill Tailwind default .container max-width inside dashboard */

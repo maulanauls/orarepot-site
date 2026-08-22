@@ -81,10 +81,10 @@ export function ChatSheet({ trigger }: { trigger: ReactNode }) {
               <Headphones className="size-4" />
             </span>
             <span className="min-w-0">
-              <span className="block text-sm font-semibold">
+              <span className="block text-sm font-semibold uppercase tracking-wide">
                 {t('header.chatTitle')}
               </span>
-              <span className="block text-xs font-normal text-muted-foreground uppercase tracking-wide">
+              <span className="block text-xs font-normal text-muted-foreground">
                 {t('header.chatSubtitle')}
               </span>
             </span>
