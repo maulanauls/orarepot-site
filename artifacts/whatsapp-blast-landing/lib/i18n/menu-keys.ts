@@ -1,0 +1,23 @@
+/** Map menu path / heading → i18n key under `menu.*` */
+export const MENU_I18N: Record<string, string> = {
+  '/dashboard': 'menu.overview',
+  '/dashboard/whatsapp': 'menu.whatsapp',
+  '/dashboard/ai': 'menu.ai',
+  '/dashboard/broadcast': 'menu.broadcast',
+  '/dashboard/analytics': 'menu.analytics',
+  OTP: 'menu.otpHeading',
+  '/dashboard/otp': 'menu.otpOverview',
+  '/dashboard/otp/kirim': 'menu.otpSend',
+  '/dashboard/otp/logs': 'menu.otpLogs',
+  '/dashboard/otp/templates': 'menu.otpTemplates',
+  '/dashboard/otp/settings': 'menu.otpSettings',
+  Account: 'menu.accountHeading',
+  '/dashboard/billing': 'menu.billing',
+  '/dashboard/settings': 'menu.settings',
+  Admin: 'menu.adminHeading',
+  '/admin': 'menu.adminOverview',
+  '/admin/users': 'menu.adminUsers',
+  '/admin/subscriptions': 'menu.adminSubscriptions',
+  '/admin/otp': 'menu.adminOtp',
+  '/admin/settings': 'menu.adminSettings',
+};

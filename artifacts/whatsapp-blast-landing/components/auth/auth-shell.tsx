@@ -2,55 +2,60 @@
 
 import Link from 'next/link';
 import { FormEvent, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { LanguageSwitcher } from '@/components/i18n/language-switcher';
+import { useT } from '@/components/i18n/locale-provider';
 
 type Mode = 'signin' | 'register';
 
-export function AuthShell({
-  mode,
-  title,
-  subtitle,
-}: {
-  mode: Mode;
-  title: string;
-  subtitle: string;
-}) {
+export function AuthShell({ mode }: { mode: Mode }) {
+  const router = useRouter();
+  const t = useT();
   const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState('');
 
+  const title = mode === 'signin' ? t('auth.signInTitle') : t('auth.registerTitle');
+  const subtitle =
+    mode === 'signin' ? t('auth.signInSubtitle') : t('auth.registerSubtitle');
+
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setMessage(
-      mode === 'signin'
-        ? 'Form masuk siap dihubungkan ke backend autentikasi.'
-        : 'Form registrasi siap dihubungkan ke backend autentikasi.',
-    );
+    if (mode === 'signin') {
+      setMessage(t('auth.signingIn'));
+      router.push('/dashboard/otp');
+      return;
+    }
+    setMessage(t('auth.registerReady'));
   }
 
   return (
     <main className="auth-page">
       <section className="auth-form-pane">
-        <Link href="/" className="auth-close" aria-label="Kembali ke beranda">
+        <Link href="/" className="auth-close" aria-label={t('common.backHome')}>
           ×
         </Link>
         <div className="auth-form-wrap">
-          <img src="/logo-orarepot.png" alt="Ora Repot" className="auth-logo" />
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <img src="/logo-orarepot.png" alt="Ora Repot" className="auth-logo !mb-0" />
+            <LanguageSwitcher compact />
+          </div>
           <h1>{title}</h1>
           <p>{subtitle}</p>
 
           <form className="auth-form" onSubmit={onSubmit}>
             {mode === 'register' && (
               <label>
-                Nama lengkap
-                <input required name="name" placeholder="Nama Anda" />
+                {t('auth.fullName')}
+                <input required name="name" placeholder={t('auth.fullNamePh')} />
               </label>
             )}
             <label>
-              Email atau WhatsApp
-              <input required name="identifier" placeholder="email@bisnis.com / 08xx" />
+              {t('auth.identifier')}
+              <input required name="identifier" placeholder={t('auth.identifierPh')} />
             </label>
             <label>
-              Kata sandi
+              {t('auth.password')}
               <span className="password-field">
                 <input
                   required
@@ -62,7 +67,7 @@ export function AuthShell({
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  aria-label="Tampilkan kata sandi"
+                  aria-label={t('auth.showPassword')}
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
@@ -70,7 +75,7 @@ export function AuthShell({
             </label>
             {mode === 'register' && (
               <label>
-                Konfirmasi kata sandi
+                {t('auth.confirmPassword')}
                 <input required name="confirm" type="password" placeholder="••••••••" minLength={6} />
               </label>
             )}
@@ -78,27 +83,29 @@ export function AuthShell({
             {mode === 'signin' && (
               <div className="auth-row">
                 <label className="remember">
-                  <input type="checkbox" name="remember" /> Ingat akun saya
+                  <input type="checkbox" name="remember" />
+                  <span>{t('auth.remember')}</span>
                 </label>
                 <button type="button" className="linkish">
-                  Lupa kata sandi?
+                  {t('auth.forgot')}
                 </button>
               </div>
             )}
 
             <button type="submit" className="auth-submit">
-              {mode === 'signin' ? 'Masuk' : 'Daftar sekarang'} <ArrowRight size={16} />
+              {mode === 'signin' ? t('auth.submitSignIn') : t('auth.submitRegister')}{' '}
+              <ArrowRight size={16} />
             </button>
           </form>
 
           <div className="auth-divider">
-            <span>Atau lanjutkan dengan</span>
+            <span>{t('auth.orContinue')}</span>
           </div>
 
           <button
             type="button"
             className="google-btn"
-            onClick={() => setMessage('Google sign-in siap dihubungkan (OAuth).')}
+            onClick={() => setMessage(t('auth.googleReady'))}
           >
             <GoogleMark />
             Google
@@ -107,11 +114,12 @@ export function AuthShell({
           <p className="auth-switch">
             {mode === 'signin' ? (
               <>
-                Belum punya akun? <Link href="/register/diorarepot">Daftar</Link>
+                {t('auth.noAccount')}{' '}
+                <Link href="/register/diorarepot">{t('common.signUp')}</Link>
               </>
             ) : (
               <>
-                Sudah punya akun? <Link href="/sign-in">Masuk</Link>
+                {t('auth.hasAccount')} <Link href="/sign-in">{t('common.signIn')}</Link>
               </>
             )}
           </p>
@@ -124,16 +132,16 @@ export function AuthShell({
         <div className="auth-visual-glow" />
         <div className="auth-visual-copy">
           <p className="eyebrow">ORAREPOT</p>
-          <h2>AI Assistant untuk merchant WhatsApp.</h2>
+          <h2>{t('auth.visualTitle')}</h2>
           <ul>
-            <li>Jaga customer relationship otomatis</li>
-            <li>Broadcast & OTP resmi Meta</li>
-            <li>Pulsa & voucher dalam satu ekosistem</li>
+            <li>{t('auth.visual1')}</li>
+            <li>{t('auth.visual2')}</li>
+            <li>{t('auth.visual3')}</li>
           </ul>
         </div>
         <div className="auth-chat-preview">
-          <div className="bubble in">Stok masih ada, Kak?</div>
-          <div className="bubble out">Masih ready. Mau saya buatkan invoice sekarang?</div>
+          <div className="bubble in">{t('auth.chatIn')}</div>
+          <div className="bubble out">{t('auth.chatOut')}</div>
         </div>
       </aside>
     </main>

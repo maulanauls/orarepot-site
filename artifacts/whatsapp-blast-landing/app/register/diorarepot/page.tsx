@@ -1,18 +1,17 @@
 import type { Metadata } from 'next';
-import { AuthShell } from '@/components/auth/auth-shell';
+import { Suspense } from 'react';
+import { RegisterPageClient } from '@/components/auth/register-page-client';
 
 export const metadata: Metadata = {
   title: 'Daftar',
-  description: 'Buat akun Ora Repot untuk merchant WhatsApp.',
+  description: 'Daftar Ora Repot dan mulai free trial dashboard.',
   robots: { index: false, follow: false },
 };
 
 export default function RegisterPage() {
   return (
-    <AuthShell
-      mode="register"
-      title="Daftar"
-      subtitle="Buat akun diorarepot dan mulai pakai AI Assistant untuk merchant WhatsApp."
-    />
+    <Suspense fallback={<main className="reg-flow-page">Memuat…</main>}>
+      <RegisterPageClient />
+    </Suspense>
   );
 }

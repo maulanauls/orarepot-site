@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ArrowRight,
   ChevronDown,
@@ -14,29 +14,24 @@ import {
   Ticket,
   Zap,
 } from 'lucide-react';
-import { products } from '@/content/products';
-
-const faqs = [
-  [
-    'Apa itu Ora Repot?',
-    'Ora Repot adalah platform SaaS untuk merchant WhatsApp: AI Assistant, broadcast & OTP resmi (WABA), serta pembelian pulsa dan voucher digital.',
-  ],
-  [
-    'Bagaimana AI Assistant membantu merchant?',
-    'AI membantu menjawab chat, follow-up prospek, dan menjaga hubungan pelanggan agar tim tidak kewalahan.',
-  ],
-  [
-    'Apakah broadcast menggunakan WABA resmi?',
-    'Ya. Broadcast dan OTP berjalan lewat Official WABA dan WhatsApp Business API dari Meta.',
-  ],
-  [
-    'Apakah bisa beli pulsa dan voucher di Ora Repot?',
-    'Bisa. Selain tools SaaS, Ora Repot juga menyediakan pulsa, voucher game, dan produk digital lainnya.',
-  ],
-];
+import { useLocale } from '@/components/i18n/locale-provider';
+import { getLocalizedProducts } from '@/lib/i18n/products';
 
 export function HomePage() {
+  const { locale, t } = useLocale();
+  const products = useMemo(() => getLocalizedProducts(locale), [locale]);
   const [faqActive, setFaqActive] = useState<number | null>(0);
+
+  const faqs = useMemo(
+    () =>
+      [
+        [t('home.faq1q'), t('home.faq1a')],
+        [t('home.faq2q'), t('home.faq2a')],
+        [t('home.faq3q'), t('home.faq3a')],
+        [t('home.faq4q'), t('home.faq4a')],
+      ] as const,
+    [t],
+  );
 
   return (
     <main className="ora-page">
@@ -45,19 +40,16 @@ export function HomePage() {
         <div className="container hero-grid">
           <div className="hero-copy-block">
             <h1>
-              AI Assistant untuk
-              <em> merchant WhatsApp.</em>
+              {t('home.heroTitleBefore')}
+              <em>{t('home.heroTitleEm')}</em>
             </h1>
-            <p className="hero-copy">
-              Bantu jaga hubungan pelanggan, kirim pesan resmi, dan urus kebutuhan digital — satu platform,
-              tanpa ribet.
-            </p>
+            <p className="hero-copy">{t('home.heroCopy')}</p>
             <div className="hero-actions">
               <Link className="button-primary" href="/demo/di/orarepot?minat=ai">
-                Coba sekarang <ArrowRight size={16} />
+                {t('common.tryNow')} <ArrowRight size={16} />
               </Link>
               <Link className="button-ghost" href="#produk">
-                Lihat semua produk
+                {t('home.seeAllProducts')}
               </Link>
             </div>
           </div>
@@ -68,16 +60,16 @@ export function HomePage() {
                   <img src="/logo-orarepot-icon.png" alt="" className="chat-avatar" />
                   <div>
                     <strong>Ora Repot AI</strong>
-                    <span>online · bantu jualan</span>
+                    <span>{t('home.chatOnline')}</span>
                   </div>
                 </div>
                 <div className="chat-thread">
-                  <div className="bubble in">Kak, stok hoodie cream size L masih ada?</div>
+                  <div className="bubble in">{t('home.chatIn1')}</div>
                   <div className="bubble out">
-                    Ada, Kak. Size L ready. Mau saya buatkan invoice + ongkir?
-                    <small>AI Assistant · otomatis</small>
+                    {t('home.chatOut1')}
+                    <small>{t('home.chatOut1Small')}</small>
                   </div>
-                  <div className="bubble in">Boleh, kirim sekarang ya.</div>
+                  <div className="bubble in">{t('home.chatIn2')}</div>
                   <div className="bubble out typing">
                     <i />
                     <i />
@@ -94,12 +86,9 @@ export function HomePage() {
       <section className="section products-section" id="produk">
         <div className="container">
           <div className="section-intro" id="solusi">
-            <span className="section-kicker">Satu brand, tiga kekuatan</span>
-            <h2 className="section-heading">Ora Repot menyatukan AI, messaging, dan digital goods.</h2>
-            <p className="section-lead">
-              Dari melayani pelanggan di WhatsApp, mengirim broadcast resmi, sampai beli pulsa dan voucher —
-              semuanya dalam ekosistem yang sama.
-            </p>
+            <span className="section-kicker">{t('home.pillarsKicker')}</span>
+            <h2 className="section-heading">{t('home.pillarsHeading')}</h2>
+            <p className="section-lead">{t('home.pillarsLead')}</p>
           </div>
           <div className="pillar-rail">
             {products.map((product) => {
@@ -115,7 +104,8 @@ export function HomePage() {
                   <h3>{product.title}</h3>
                   <p>{product.description}</p>
                   <Link className="pillar-link" href={product.href}>
-                    Pelajari {product.label} <ArrowRight size={14} />
+                    {t('home.learnProduct', { label: product.label })}{' '}
+                    <ArrowRight size={14} />
                   </Link>
                 </article>
               );
@@ -127,44 +117,42 @@ export function HomePage() {
       <section className="section ai-section" id="ai">
         <div className="container split-grid">
           <div>
-            <span className="section-kicker">Agentic AI CRM</span>
-            <h2 className="section-heading">Asisten yang jaga customer relationship merchant.</h2>
-            <p className="section-lead">
-              Saat toko sibuk, AI Ora Repot membantu menjawab chat dan menjaga pelanggan tetap engaged.
-            </p>
+            <span className="section-kicker">{t('home.aiKicker')}</span>
+            <h2 className="section-heading">{t('home.aiHeading')}</h2>
+            <p className="section-lead">{t('home.aiLead')}</p>
             <ul className="feature-lines">
               <li>
-                <Sparkles size={16} /> Balas pertanyaan produk & stok lebih cepat
+                <Sparkles size={16} /> {t('home.aiF1')}
               </li>
               <li>
-                <MessageSquareText size={16} /> Follow-up otomatis tanpa kehilangan nada ramah
+                <MessageSquareText size={16} /> {t('home.aiF2')}
               </li>
               <li>
-                <Zap size={16} /> Bekerja di jalur WhatsApp yang sudah dipakai pelanggan
+                <Zap size={16} /> {t('home.aiF3')}
               </li>
             </ul>
             <Link className="button-primary dark" href="/demo/di/orarepot?minat=ai">
-              Coba sekarang <ArrowRight size={16} />
+              {t('common.tryNow')} <ArrowRight size={16} />
             </Link>
           </div>
           <div className="ai-panel">
-            <div className="ai-panel-head">Agentic workflow</div>
+            <div className="ai-panel-head">{t('home.aiPanelHead')}</div>
             <ol className="ai-steps">
               <li>
-                <strong>Dengar</strong>
-                <span>Chat masuk dari pelanggan WhatsApp</span>
+                <strong>{t('home.aiStep1Title')}</strong>
+                <span>{t('home.aiStep1Body')}</span>
               </li>
               <li>
-                <strong>Pahami</strong>
-                <span>AI mengenali intent: stok, harga, status order</span>
+                <strong>{t('home.aiStep2Title')}</strong>
+                <span>{t('home.aiStep2Body')}</span>
               </li>
               <li>
-                <strong>Bertindak</strong>
-                <span>Balas, tawarkan opsi, atau eskalasi ke manusia</span>
+                <strong>{t('home.aiStep3Title')}</strong>
+                <span>{t('home.aiStep3Body')}</span>
               </li>
               <li>
-                <strong>Jaga hubungan</strong>
-                <span>Follow-up relevan setelah pembelian</span>
+                <strong>{t('home.aiStep4Title')}</strong>
+                <span>{t('home.aiStep4Body')}</span>
               </li>
             </ol>
           </div>
@@ -174,24 +162,24 @@ export function HomePage() {
       <section className="section messaging-section" id="messaging">
         <div className="container">
           <div className="section-intro">
-            <span className="section-kicker">WABA Messaging</span>
-            <h2 className="section-heading">Broadcast & OTP lewat jalur resmi Meta.</h2>
+            <span className="section-kicker">{t('home.msgKicker')}</span>
+            <h2 className="section-heading">{t('home.msgHeading')}</h2>
           </div>
           <div className="messaging-split">
             <article className="msg-block">
               <ShieldCheck size={22} />
-              <h3>Broadcast messaging</h3>
-              <p>Sapa pelanggan dan pantau performa kampanye dari satu dashboard.</p>
+              <h3>{t('home.msgBroadcastTitle')}</h3>
+              <p>{t('home.msgBroadcastBody')}</p>
             </article>
             <article className="msg-block accent">
               <ShieldCheck size={22} />
-              <h3>OTP WhatsApp</h3>
-              <p>Verifikasi login dan transaksi lewat kode resmi Meta.</p>
+              <h3>{t('home.msgOtpTitle')}</h3>
+              <p>{t('home.msgOtpBody')}</p>
             </article>
           </div>
           <div className="section-cta">
             <Link className="button-primary dark" href="/di/orarepot/waba-messaging">
-              Pelajari WABA Messaging <ArrowRight size={16} />
+              {t('home.msgCta')} <ArrowRight size={16} />
             </Link>
           </div>
         </div>
@@ -202,28 +190,26 @@ export function HomePage() {
           <div className="digital-mosaic" aria-hidden="true">
             <div className="mosaic-item">
               <Smartphone size={22} />
-              <strong>Pulsa & data</strong>
-              <span>Isi saldo cepat</span>
+              <strong>{t('home.digitalPulsa')}</strong>
+              <span>{t('home.digitalPulsaSub')}</span>
             </div>
             <div className="mosaic-item lime">
               <Gamepad2 size={22} />
-              <strong>Voucher game</strong>
-              <span>Top-up favorit</span>
+              <strong>{t('home.digitalGame')}</strong>
+              <span>{t('home.digitalGameSub')}</span>
             </div>
             <div className="mosaic-item wide">
               <Ticket size={22} />
-              <strong>Produk digital lain</strong>
-              <span>Satu tempat, checkout sederhana</span>
+              <strong>{t('home.digitalOther')}</strong>
+              <span>{t('home.digitalOtherSub')}</span>
             </div>
           </div>
           <div>
-            <span className="section-kicker">Digital goods</span>
-            <h2 className="section-heading">Pulsa, voucher game, dan kebutuhan digital lain.</h2>
-            <p className="section-lead">
-              Selain tools SaaS, Ora Repot juga jadi tempat beli produk digital sehari-hari.
-            </p>
+            <span className="section-kicker">{t('home.digitalKicker')}</span>
+            <h2 className="section-heading">{t('home.digitalHeading')}</h2>
+            <p className="section-lead">{t('home.digitalLead')}</p>
             <Link className="button-primary" href="/di/orarepot/pulsa-dan-voucher-game">
-              Beli produk digital <ArrowRight size={16} />
+              {t('home.digitalCta')} <ArrowRight size={16} />
             </Link>
           </div>
         </div>
@@ -232,8 +218,8 @@ export function HomePage() {
       <section className="section faq-section" id="faq">
         <div className="container faq-layout">
           <div>
-            <span className="section-kicker">FAQ</span>
-            <h2 className="section-heading">Satu platform, banyak pertanyaan wajar.</h2>
+            <span className="section-kicker">{t('home.faqKicker')}</span>
+            <h2 className="section-heading">{t('home.faqHeading')}</h2>
           </div>
           <div className="faq-list">
             {faqs.map(([question, answer], i) => (
@@ -256,11 +242,11 @@ export function HomePage() {
       <section className="closing">
         <div className="container closing-inner">
           <div>
-            <h2>Siap jualan WhatsApp tanpa ribet?</h2>
-            <p>Mulai dari demo AI Assistant, messaging resmi, atau kebutuhan digital Anda hari ini.</p>
+            <h2>{t('home.closingTitle')}</h2>
+            <p>{t('home.closingBody')}</p>
           </div>
           <Link className="button-primary" href="/demo/di/orarepot?minat=ai">
-            Coba sekarang <ArrowRight size={17} />
+            {t('common.tryNow')} <ArrowRight size={17} />
           </Link>
         </div>
       </section>

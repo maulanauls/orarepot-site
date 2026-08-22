@@ -2,13 +2,17 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { ArrowRight, ChevronDown, Menu, X } from 'lucide-react';
-import { products } from '@/content/products';
+import { LanguageSwitcher } from '@/components/i18n/language-switcher';
+import { useLocale } from '@/components/i18n/locale-provider';
+import { getLocalizedProducts } from '@/lib/i18n/products';
 import { cn } from '@/lib/utils';
 
 export function Navbar() {
   const pathname = usePathname();
+  const { locale, t } = useLocale();
+  const products = useMemo(() => getLocalizedProducts(locale), [locale]);
   const [openMenu, setOpenMenu] = useState(false);
   const [openProduk, setOpenProduk] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -49,7 +53,9 @@ export function Navbar() {
   const isAuth =
     pathname.startsWith('/sign-in') ||
     pathname.startsWith('/register') ||
-    pathname.startsWith('/demo');
+    pathname.startsWith('/demo') ||
+    pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/admin');
   if (isAuth) return null;
 
   return (
@@ -60,7 +66,7 @@ export function Navbar() {
             <img src="/logo-orarepot.png" alt="Ora Repot" className="brand-logo" />
           </Link>
 
-          <nav className="nav-links" aria-label="Navigasi utama">
+          <nav className="nav-links" aria-label={t('nav.mainNav')}>
             <div className="nav-produk" ref={produkRef}>
               <button
                 type="button"
@@ -70,12 +76,12 @@ export function Navbar() {
                 onClick={() => setOpenProduk((v) => !v)}
                 data-testid="button-produk-menu"
               >
-                Produk <ChevronDown size={14} />
+                {t('nav.products')} <ChevronDown size={14} />
               </button>
               {openProduk && (
                 <div id={menuId} className="produk-mega" role="menu">
                   <div className="produk-mega-col">
-                    <p className="produk-mega-heading">Produk utama</p>
+                    <p className="produk-mega-heading">{t('nav.mainProducts')}</p>
                     {products.map((product) => {
                       const Icon = product.icon;
                       return (
@@ -98,30 +104,31 @@ export function Navbar() {
                     })}
                   </div>
                   <div className="produk-mega-aside">
-                    <p className="produk-mega-heading">Butuh panduan?</p>
-                    <p>Coba OTP demo atau chat WhatsApp bot AI sekarang.</p>
+                    <p className="produk-mega-heading">{t('nav.needGuide')}</p>
+                    <p>{t('nav.needGuideBody')}</p>
                     <Link
                       href="/demo/di/orarepot?minat=ai"
                       className="button-primary dark"
                       onClick={() => setOpenProduk(false)}
                     >
-                      Coba sekarang <ArrowRight size={14} />
+                      {t('common.tryNow')} <ArrowRight size={14} />
                     </Link>
                   </div>
                 </div>
               )}
             </div>
-            <Link href="/#solusi">Solusi</Link>
-            <Link href="/harga/di/orarepot">Harga</Link>
-            <Link href="/#faq">FAQ</Link>
+            <Link href="/#solusi">{t('nav.solutions')}</Link>
+            <Link href="/harga/di/orarepot">{t('nav.pricing')}</Link>
+            <Link href="/#faq">{t('nav.faq')}</Link>
           </nav>
 
           <div className="nav-actions">
+            <LanguageSwitcher className="lang-switch-nav" />
             <Link href="/sign-in" className="nav-login" data-testid="link-signin">
-              Masuk
+              {t('common.signIn')}
             </Link>
             <Link href="/demo/di/orarepot" className="nav-cta" data-testid="button-nav-demo">
-              Coba sekarang <ArrowRight size={14} />
+              {t('common.tryNow')} <ArrowRight size={14} />
             </Link>
           </div>
 
@@ -129,7 +136,7 @@ export function Navbar() {
             type="button"
             className="menu-toggle"
             onClick={() => setOpenMenu((v) => !v)}
-            aria-label="Buka menu"
+            aria-label={t('nav.openMenu')}
             data-testid="button-mobile-menu"
           >
             {openMenu ? <X /> : <Menu />}
@@ -137,24 +144,27 @@ export function Navbar() {
         </div>
 
         {openMenu && (
-          <nav className="mobile-nav" aria-label="Navigasi mobile">
-            <p className="mobile-nav-label">Produk</p>
+          <nav className="mobile-nav" aria-label={t('nav.mobileNav')}>
+            <div className="px-1 pb-2">
+              <LanguageSwitcher />
+            </div>
+            <p className="mobile-nav-label">{t('nav.products')}</p>
             {products.map((product) => (
               <Link key={product.slug} href={product.href} onClick={() => setOpenMenu(false)}>
                 {product.label}
               </Link>
             ))}
             <Link href="/#solusi" onClick={() => setOpenMenu(false)}>
-              Solusi
+              {t('nav.solutions')}
             </Link>
             <Link href="/harga/di/orarepot" onClick={() => setOpenMenu(false)}>
-              Harga
+              {t('nav.pricing')}
             </Link>
             <Link href="/sign-in" onClick={() => setOpenMenu(false)}>
-              Masuk
+              {t('common.signIn')}
             </Link>
             <Link href="/demo/di/orarepot" className="nav-cta" onClick={() => setOpenMenu(false)}>
-              Coba sekarang <ArrowRight size={14} />
+              {t('common.tryNow')} <ArrowRight size={14} />
             </Link>
           </nav>
         )}
