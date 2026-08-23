@@ -224,14 +224,15 @@ export function OtpTemplateDetailPage({ id }: { id: string }) {
 
   if (!template) return null;
 
-  const readPct = Math.round(template.readRate * 100);
+  const current = template;
+  const readPct = Math.round(current.readRate * 100);
 
   function onSaveEdit() {
     if (!formName.trim() || !formBody.trim()) return;
     setSaving(true);
     const lang =
       EDIT_LANGUAGES.find((l) => l.value === formLang) ?? EDIT_LANGUAGES[0];
-    const next = updateTemplate(template.id, {
+    const next = updateTemplate(current.id, {
       name: formName,
       language: lang.value,
       languageCode: lang.code,
