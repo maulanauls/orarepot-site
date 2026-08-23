@@ -21,6 +21,7 @@ export const SUBSCRIPTION_PLANS: Plan[] = [
     desc: 'Kirim & verifikasi OTP WhatsApp resmi untuk login, register, dan reset password.',
     features: [
       'OTP WhatsApp resmi (WABA)',
+      'Rp 600 / pesan OTP (deposit Rp 50.000)',
       'Dashboard OTP & logs',
       'Template pesan OTP',
       'Rate limit & keamanan dasar',

@@ -25,6 +25,24 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   CATEGORY_LABEL,
@@ -32,10 +50,16 @@ import {
   formatIdr,
   getTemplateById,
   renderBodySample,
+  updateTemplate,
   type OtpTemplate,
   type OtpTemplateMetricPoint,
 } from '@/lib/otp-templates';
 import { cn } from '@/lib/utils';
+
+const EDIT_LANGUAGES = [
+  { value: 'Indonesian', code: 'id' },
+  { value: 'English (US)', code: 'en_US' },
+] as const;
 
 function statusBadge(t: OtpTemplate) {
   if (t.status === 'REJECTED') {
@@ -162,6 +186,12 @@ export function OtpTemplateDetailPage({ id }: { id: string }) {
   );
   const [copied, setCopied] = useState(false);
   const [bannerOpen, setBannerOpen] = useState(true);
+  const [editOpen, setEditOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formName, setFormName] = useState('');
+  const [formLang, setFormLang] = useState('Indonesian');
+  const [formBody, setFormBody] = useState('');
+  const [formButton, setFormButton] = useState('');
 
   useEffect(() => {
     const found = getTemplateById(id);
@@ -196,7 +226,25 @@ export function OtpTemplateDetailPage({ id }: { id: string }) {
 
   const readPct = Math.round(template.readRate * 100);
 
+  function onSaveEdit() {
+    if (!formName.trim() || !formBody.trim()) return;
+    setSaving(true);
+    const lang =
+      EDIT_LANGUAGES.find((l) => l.value === formLang) ?? EDIT_LANGUAGES[0];
+    const next = updateTemplate(template.id, {
+      name: formName,
+      language: lang.value,
+      languageCode: lang.code,
+      body: formBody,
+      buttonLabel: formButton.trim() || undefined,
+    });
+    if (next) setTemplate(next);
+    setSaving(false);
+    setEditOpen(false);
+  }
+
   return (
+    <>
     <DashboardShell
       title={`${template.name} · ${template.language}`}
       subtitle={undefined}
@@ -210,7 +258,17 @@ export function OtpTemplateDetailPage({ id }: { id: string }) {
           <span className="text-xs text-muted-foreground hidden md:inline px-2 py-1.5 rounded-md border border-border bg-card">
             15 Agu 2026 – 22 Agu 2026
           </span>
-          <Button variant="outline" size="sm" disabled>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setFormName(template.name);
+              setFormLang(template.language);
+              setFormBody(template.body);
+              setFormButton(template.buttonLabel ?? '');
+              setEditOpen(true);
+            }}
+          >
             <Pencil /> {t('otp.editTemplate')}
           </Button>
           <Button variant="outline" mode="icon" size="sm" disabled>
@@ -419,6 +477,77 @@ export function OtpTemplateDetailPage({ id }: { id: string }) {
         </div>
       </div>
     </DashboardShell>
+
+    <Dialog open={editOpen} onOpenChange={setEditOpen}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{t('otp.editTitle')}</DialogTitle>
+          <DialogDescription>{t('otp.editDesc')}</DialogDescription>
+        </DialogHeader>
+        <DialogBody className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="edit-tpl-name">{t('otp.templateName')}</Label>
+            <Input
+              id="edit-tpl-name"
+              value={formName}
+              onChange={(e) => setFormName(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{t('common.language')}</Label>
+            <Select value={formLang} onValueChange={setFormLang}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {EDIT_LANGUAGES.map((l) => (
+                  <SelectItem key={l.value} value={l.value}>
+                    {l.value}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-tpl-body">{t('otp.messageBody')}</Label>
+            <textarea
+              id="edit-tpl-body"
+              className="flex min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30 focus-visible:border-ring"
+              value={formBody}
+              onChange={(e) => setFormBody(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground m-0">
+              {t('otp.otpVarHint')}
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-tpl-btn">{t('otp.buttonLabel')}</Label>
+            <input
+              id="edit-tpl-btn"
+              type="text"
+              autoComplete="off"
+              value={formButton}
+              onChange={(e) => setFormButton(e.target.value)}
+              onPointerDown={(e) => e.stopPropagation()}
+              placeholder={t('otp.copyCode')}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30 focus-visible:border-ring"
+            />
+          </div>
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setEditOpen(false)}>
+            {t('common.cancel')}
+          </Button>
+          <Button
+            onClick={onSaveEdit}
+            disabled={saving || !formName.trim() || !formBody.trim()}
+          >
+            {saving ? t('otp.saving') : t('otp.saveChanges')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 

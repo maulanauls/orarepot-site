@@ -1,5 +1,5 @@
-import { EmptyPage } from '@/components/dashboard/empty-page';
+import { OtpSettingsPage } from '@/components/dashboard/otp-settings';
 
 export default function Page() {
-  return <EmptyPage title="OTP Settings" subtitle="Konfigurasi OTP." />;
+  return <OtpSettingsPage />;
 }

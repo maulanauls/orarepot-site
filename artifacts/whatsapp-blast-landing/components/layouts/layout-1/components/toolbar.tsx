@@ -1,9 +1,13 @@
+'use client';
+
 import { Fragment, ReactNode } from 'react';
 import { ChevronRight } from 'lucide-react';
-import { MENU_SIDEBAR } from '@/config/layout-1.config';
+import { MENU_SIDEBAR, MENU_SIDEBAR_ADMIN } from '@/config/layout-1.config';
 import { MenuItem } from '@/config/types';
 import { cn } from '@/lib/utils';
 import { useMenu } from '@/hooks/use-menu';
+import { useT } from '@/components/i18n/locale-provider';
+import { MENU_I18N } from '@/lib/i18n/menu-keys';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 
@@ -24,10 +28,19 @@ function ToolbarActions({ children }: { children?: ReactNode }) {
   return <div className="flex items-center gap-2.5">{children}</div>;
 }
 
+function menuLabel(item: MenuItem, t: (key: string) => string) {
+  if (item.heading && MENU_I18N[item.heading]) return t(MENU_I18N[item.heading]);
+  if (item.path && MENU_I18N[item.path]) return t(MENU_I18N[item.path]);
+  return item.title ?? '';
+}
+
 function ToolbarBreadcrumbs() {
   const pathname = usePathname();
+  const t = useT();
   const { getBreadcrumb, isActive } = useMenu(pathname);
-  const items: MenuItem[] = getBreadcrumb(MENU_SIDEBAR);
+  const items: MenuItem[] = getBreadcrumb(
+    pathname.startsWith('/admin') ? MENU_SIDEBAR_ADMIN : MENU_SIDEBAR,
+  );
 
   if (items.length === 0) {
     return null;
@@ -52,13 +65,13 @@ function ToolbarBreadcrumbs() {
                       : 'text-muted-foreground hover:text-primary',
                   )}
                 >
-                  {item.title}
+                  {menuLabel(item, t)}
                 </Link>
               ) : (
                 <span
                   className={cn(isLast ? 'text-mono' : 'text-muted-foreground')}
                 >
-                  {item.title}
+                  {menuLabel(item, t)}
                 </span>
               )}
               {!isLast && (
@@ -78,12 +91,20 @@ function ToolbarHeading ({ children }: { children: ReactNode }) {
 
 function ToolbarPageTitle ({ children }: { children?: string }) {
   const pathname = usePathname();
+  const t = useT();
   const { getCurrentItem } = useMenu(pathname);
-  const item = getCurrentItem(MENU_SIDEBAR);
+  const item = getCurrentItem(
+    pathname.startsWith('/admin') ? MENU_SIDEBAR_ADMIN : MENU_SIDEBAR,
+  );
+  const fallback = item
+    ? menuLabel(item, t)
+    : MENU_I18N[pathname]
+      ? t(MENU_I18N[pathname])
+      : t('menu.overview');
 
   return (
     <h1 className="text-xl font-medium leading-none text-mono">
-      {children ? children : item?.title || 'Untitled'}
+      {children ? children : fallback}
     </h1>
   );
 };

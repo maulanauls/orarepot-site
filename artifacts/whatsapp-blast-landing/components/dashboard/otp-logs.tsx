@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ColumnDef,
   getCoreRowModel,
@@ -38,63 +38,25 @@ import {
 } from '@/components/ui/popover';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { useT } from '@/components/i18n/locale-provider';
+import {
+  getAllOtpLogs,
+  otpLogTemplates,
+  OTP_STATUSES,
+  type OtpLog,
+  type OtpLogStatus,
+} from '@/lib/otp-logs';
 
-type OtpStatus = 'Sent' | 'Delivered' | 'Verified' | 'Failed';
-
-type OtpLog = {
-  id: string;
-  waktu: string;
-  nomor: string;
-  tujuan: string;
-  status: OtpStatus;
-  requestId: string;
-};
-
-const PURPOSES = ['Login', 'Registrasi', 'Reset Password', 'Lainnya'] as const;
-const STATUSES: OtpStatus[] = ['Sent', 'Delivered', 'Verified', 'Failed'];
-
-const MOCK_LOGS: OtpLog[] = Array.from({ length: 48 }, (_, i) => {
-  const day = 13 + (i % 7);
-  const hour = 8 + (i % 12);
-  const min = String((i * 7) % 60).padStart(2, '0');
-  const status = STATUSES[i % STATUSES.length];
-  const tujuan = PURPOSES[i % PURPOSES.length];
-  const suffix = String(1000 + i).slice(-4);
-  return {
-    id: String(i + 1),
-    waktu: `${day} Mei ${hour}:${min}`,
-    nomor: `+62 812-3456-${suffix}`,
-    tujuan,
-    status,
-    requestId: `req_${(100000 + i * 37).toString(36)}`,
-  };
-});
-
-function statusBadge(status: OtpStatus) {
+function statusBadge(status: OtpLogStatus, label: string) {
   if (status === 'Failed') {
     return (
       <Badge variant="destructive" appearance="light" size="sm">
-        {status}
-      </Badge>
-    );
-  }
-  if (status === 'Verified') {
-    return (
-      <Badge variant="primary" appearance="light" size="sm">
-        {status}
-      </Badge>
-    );
-  }
-  if (status === 'Delivered') {
-    return (
-      <Badge variant="info" appearance="light" size="sm">
-        {status}
+        {label}
       </Badge>
     );
   }
   return (
     <Badge variant="success" appearance="light" size="sm">
-      {status}
+      {label}
     </Badge>
   );
 }
@@ -111,9 +73,16 @@ export function OtpLogsPage() {
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'waktu', desc: true },
   ]);
+  const [logs, setLogs] = useState<OtpLog[]>([]);
+
+  useEffect(() => {
+    setLogs(getAllOtpLogs());
+  }, []);
+
+  const purposes = useMemo(() => otpLogTemplates(logs), [logs]);
 
   const filteredData = useMemo(() => {
-    let rows = [...MOCK_LOGS];
+    let rows = [...logs];
     const q = searchQuery.trim().toLowerCase();
     if (q) {
       rows = rows.filter(
@@ -130,21 +99,21 @@ export function OtpLogsPage() {
       rows = rows.filter((r) => selectedPurposes.includes(r.tujuan));
     }
     return rows;
-  }, [searchQuery, selectedStatuses, selectedPurposes]);
+  }, [logs, searchQuery, selectedStatuses, selectedPurposes]);
 
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const s of STATUSES) counts[s] = 0;
-    for (const row of MOCK_LOGS) counts[row.status] += 1;
+    for (const s of OTP_STATUSES) counts[s] = 0;
+    for (const row of logs) counts[row.status] = (counts[row.status] ?? 0) + 1;
     return counts;
-  }, []);
+  }, [logs]);
 
   const purposeCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const p of PURPOSES) counts[p] = 0;
-    for (const row of MOCK_LOGS) counts[row.tujuan] += 1;
+    for (const p of purposes) counts[p] = 0;
+    for (const row of logs) counts[row.tujuan] = (counts[row.tujuan] ?? 0) + 1;
     return counts;
-  }, []);
+  }, [logs, purposes]);
 
   const columns = useMemo<ColumnDef<OtpLog>[]>(
     () => [
@@ -191,7 +160,13 @@ export function OtpLogsPage() {
         header: ({ column }) => (
           <DataGridColumnHeader title={t('otp.colStatus')} column={column} />
         ),
-        cell: ({ row }) => statusBadge(row.original.status),
+        cell: ({ row }) =>
+          statusBadge(
+            row.original.status,
+            row.original.status === 'Failed'
+              ? t('otp.logFailed')
+              : t('otp.logSuccess'),
+          ),
         size: 120,
         enableSorting: true,
       },
@@ -313,7 +288,7 @@ export function OtpLogsPage() {
                       <div className="text-xs font-medium text-muted-foreground">
                         {t('otp.colStatus')}
                       </div>
-                      {STATUSES.map((status) => (
+                      {OTP_STATUSES.map((status) => (
                         <div key={status} className="flex items-center gap-2.5">
                           <Checkbox
                             id={`status-${status}`}
@@ -331,7 +306,9 @@ export function OtpLogsPage() {
                             htmlFor={`status-${status}`}
                             className="grow flex items-center justify-between font-normal gap-1.5"
                           >
-                            {status}
+                            {status === 'Failed'
+                              ? t('otp.logFailed')
+                              : t('otp.logSuccess')}
                             <span className="text-muted-foreground">
                               {statusCounts[status]}
                             </span>
@@ -355,12 +332,12 @@ export function OtpLogsPage() {
                       <ChevronDown className="size-3.5 opacity-60" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-48 p-3" align="start">
+                  <PopoverContent className="w-56 p-3" align="start">
                     <div className="space-y-3">
                       <div className="text-xs font-medium text-muted-foreground">
                         {t('otp.colPurpose')}
                       </div>
-                      {PURPOSES.map((purpose) => (
+                      {purposes.map((purpose) => (
                         <div key={purpose} className="flex items-center gap-2.5">
                           <Checkbox
                             id={`purpose-${purpose}`}
@@ -378,13 +355,7 @@ export function OtpLogsPage() {
                             htmlFor={`purpose-${purpose}`}
                             className="grow flex items-center justify-between font-normal gap-1.5"
                           >
-                            {purpose === 'Login'
-                              ? t('otp.purposeLogin')
-                              : purpose === 'Registrasi'
-                                ? t('otp.purposeRegister')
-                                : purpose === 'Reset Password'
-                                  ? t('otp.purposeReset')
-                                  : t('otp.purposeOther')}
+                            {purpose}
                             <span className="text-muted-foreground">
                               {purposeCounts[purpose]}
                             </span>

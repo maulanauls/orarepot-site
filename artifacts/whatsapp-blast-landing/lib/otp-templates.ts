@@ -1,6 +1,9 @@
 export type OtpTemplateCategory = 'AUTHENTICATION' | 'UTILITY' | 'MARKETING';
 export type OtpTemplateStatus = 'ACTIVE' | 'PENDING' | 'REJECTED' | 'PAUSED';
 
+/** Sell rate charged to merchant per delivered OTP (IDR). */
+export const OTP_COST_PER_MESSAGE = 600;
+
 export type OtpTemplateMetricPoint = {
   label: string;
   delivered: number;
@@ -70,8 +73,8 @@ export const OTP_TEMPLATES: OtpTemplate[] = [
     messagesRead: 195,
     uniqueReplies: 0,
     readRate: 0.74,
-    amountSpent: 94155.6,
-    costPerMessage: 356.65,
+    amountSpent: 264 * OTP_COST_PER_MESSAGE,
+    costPerMessage: OTP_COST_PER_MESSAGE,
     updatedAt: '2026-08-08',
     metaId: '1234567890123456',
     series: DEFAULT_SERIES,
@@ -116,8 +119,8 @@ export const OTP_TEMPLATES: OtpTemplate[] = [
     messagesRead: 1420,
     uniqueReplies: 12,
     readRate: 0.79,
-    amountSpent: 612400,
-    costPerMessage: 332.5,
+    amountSpent: 1842 * OTP_COST_PER_MESSAGE,
+    costPerMessage: OTP_COST_PER_MESSAGE,
     updatedAt: '2026-08-18',
     metaId: '1122334455667788',
     series: DEFAULT_SERIES.map((p, i) => ({
@@ -143,7 +146,7 @@ export const OTP_TEMPLATES: OtpTemplate[] = [
     uniqueReplies: 0,
     readRate: 0,
     amountSpent: 0,
-    costPerMessage: 0,
+    costPerMessage: OTP_COST_PER_MESSAGE,
     updatedAt: '2026-08-20',
     metaId: '5566778899001122',
     series: DEFAULT_SERIES.map((p) => ({
@@ -209,7 +212,7 @@ export const OTP_TEMPLATES: OtpTemplate[] = [
     uniqueReplies: 0,
     readRate: 0,
     amountSpent: 0,
-    costPerMessage: 0,
+    costPerMessage: OTP_COST_PER_MESSAGE,
     updatedAt: '2026-08-01',
     metaId: '8899001122334455',
     series: DEFAULT_SERIES.map((p) => ({
@@ -234,8 +237,8 @@ export const OTP_TEMPLATES: OtpTemplate[] = [
     messagesRead: 410,
     uniqueReplies: 3,
     readRate: 0.78,
-    amountSpent: 178200,
-    costPerMessage: 337.5,
+    amountSpent: 540 * OTP_COST_PER_MESSAGE,
+    costPerMessage: OTP_COST_PER_MESSAGE,
     updatedAt: '2026-08-15',
     metaId: '9900112233445566',
     series: DEFAULT_SERIES,
@@ -335,7 +338,7 @@ export function saveNewTemplate(input: {
     uniqueReplies: 0,
     readRate: 0,
     amountSpent: 0,
-    costPerMessage: 0,
+    costPerMessage: OTP_COST_PER_MESSAGE,
     updatedAt: today,
     metaId: String(Date.now()),
     series: DEFAULT_SERIES.map((p) => ({
@@ -349,4 +352,35 @@ export function saveNewTemplate(input: {
   extra.unshift(template);
   writeExtra(extra);
   return template;
+}
+
+export function updateTemplate(
+  id: string,
+  patch: Partial<
+    Pick<OtpTemplate, 'name' | 'language' | 'languageCode' | 'body' | 'buttonLabel'>
+  >,
+): OtpTemplate | undefined {
+  const current = getTemplateById(id);
+  if (!current) return undefined;
+  const today = new Date().toISOString().slice(0, 10);
+  const next: OtpTemplate = {
+    ...current,
+    ...patch,
+    name: patch.name
+      ? patch.name
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9_]+/g, '_')
+          .replace(/^_+|_+$/g, '')
+          .slice(0, 48) || current.name
+      : current.name,
+    updatedAt: today,
+    status: current.status === 'REJECTED' ? 'PENDING' : current.status,
+    statusLabel:
+      current.status === 'REJECTED' ? 'Menunggu persetujuan' : current.statusLabel,
+  };
+  const extra = readExtra().filter((t) => t.id !== id);
+  extra.unshift(next);
+  writeExtra(extra);
+  return next;
 }

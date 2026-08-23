@@ -13,7 +13,9 @@ export const metadata: Metadata = {
   },
   description:
     'Ora Repot menyatukan Agentic AI customer relationship, broadcast & OTP resmi WhatsApp (WABA), serta pembelian pulsa dan voucher digital.',
-  metadataBase: new URL('http://localhost:5173'),
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL ?? 'https://orarepot.com',
+  ),
   openGraph: {
     title: 'ORAREPOT',
     description: 'AI Assistant, WABA messaging, dan digital goods dalam satu platform.',

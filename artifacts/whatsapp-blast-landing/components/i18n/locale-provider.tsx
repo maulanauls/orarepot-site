@@ -16,6 +16,9 @@ import {
   type Locale,
 } from '@/lib/i18n/config';
 import { translate } from '@/lib/i18n/translate';
+import { PageLoader } from '@/components/layout/page-loader';
+
+const LOCALE_RELOAD_FLAG = 'orarepot.locale-reload';
 
 type Vars = Record<string, string | number>;
 
@@ -41,10 +44,21 @@ function readStoredLocale(): Locale {
 export function LocaleProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE);
   const [ready, setReady] = useState(false);
+  const [showLoader, setShowLoader] = useState(false);
 
   useEffect(() => {
     setLocaleState(readStoredLocale());
     setReady(true);
+    try {
+      if (sessionStorage.getItem(LOCALE_RELOAD_FLAG) === '1') {
+        sessionStorage.removeItem(LOCALE_RELOAD_FLAG);
+        setShowLoader(true);
+        const timer = window.setTimeout(() => setShowLoader(false), 720);
+        return () => window.clearTimeout(timer);
+      }
+    } catch {
+      /* ignore */
+    }
   }, []);
 
   useEffect(() => {
@@ -58,8 +72,16 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   }, [locale, ready]);
 
   const setLocale = useCallback((next: Locale) => {
-    setLocaleState(next);
-  }, []);
+    if (next === locale) return;
+    setShowLoader(true);
+    try {
+      localStorage.setItem(LOCALE_STORAGE_KEY, next);
+      sessionStorage.setItem(LOCALE_RELOAD_FLAG, '1');
+    } catch {
+      /* ignore */
+    }
+    window.location.reload();
+  }, [locale]);
 
   const t = useCallback(
     (key: string, vars?: Vars) => translate(locale, key, vars),
@@ -72,7 +94,10 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>
+    <LocaleContext.Provider value={value}>
+      {showLoader ? <PageLoader /> : null}
+      {children}
+    </LocaleContext.Provider>
   );
 }
 

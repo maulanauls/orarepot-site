@@ -16,7 +16,7 @@ export function LanguageSwitcher({
   return (
     <div
       className={cn(
-        'inline-flex items-center rounded-md border border-border bg-card p-0.5',
+        'lang-switch inline-flex items-center rounded-md border border-border bg-card p-0.5',
         className,
       )}
       role="group"
@@ -28,7 +28,7 @@ export function LanguageSwitcher({
           type="button"
           onClick={() => setLocale(code)}
           className={cn(
-            'rounded px-2 py-1 text-xs font-medium transition-colors',
+            'rounded px-2 py-1 text-xs transition-colors',
             compact ? 'min-w-8' : 'min-w-9',
             locale === code
               ? 'bg-primary text-primary-foreground'

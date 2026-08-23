@@ -166,8 +166,10 @@ html.dashboard-font {
 
 html.dashboard-font body,
 .dashboard-app,
+.pay-app,
 html.dashboard-font body *:not(svg):not(path),
 .dashboard-app *:not(svg):not(path),
+.pay-app *:not(svg):not(path),
 html.dashboard-font [data-slot='dialog-content'],
 html.dashboard-font [data-slot='dialog-content'] *:not(svg):not(path),
 html.dashboard-font [data-slot='sheet-content'],
@@ -346,10 +348,26 @@ html.dashboard-font [data-slot='select-content'] *:not(svg):not(path) {
   border-color: color-mix(in oklab, var(--foreground) 18%, transparent);
   background: color-mix(in oklab, var(--background) 70%, transparent);
 }
-.nav-login {
+.lang-switch button {
+  font-family: Silka-Bold, sans-serif !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.04em;
+}
+html.dashboard-font .lang-switch button {
+  font-family: var(--font-poppins), 'Poppins', sans-serif !important;
+  font-weight: 700 !important;
+}
+.nav-login,
+.mobile-nav .nav-login {
   text-decoration: none;
-  color: rgba(247, 251, 248, 0.78);
+  color: var(--lime);
   font-size: 0.86rem;
+  font-family: Silka-Bold, sans-serif !important;
+  font-weight: 400;
+}
+.nav-login:hover,
+.mobile-nav .nav-login:hover {
+  color: var(--lime-soft);
 }
 .nav-cta,
 .button-primary {
@@ -2851,6 +2869,67 @@ a.auth-submit {
 .reg-done h2 { margin-bottom: 8px; }
 .reg-done p { color: rgba(247, 251, 248, 0.65); line-height: 1.5; margin-bottom: 18px; }
 
+.pay-aside-note {
+  margin: 16px 0 0;
+  max-width: 34ch;
+  color: rgba(247, 251, 248, 0.5);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.pay-detail-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(247, 251, 248, 0.1);
+  background: rgba(247, 251, 248, 0.04);
+  margin-bottom: 18px;
+}
+.pay-copy-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.pay-copy-row span {
+  display: block;
+  font-size: 0.72rem;
+  color: rgba(247, 251, 248, 0.5);
+}
+.pay-copy-row strong {
+  display: block;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #f7fbf8;
+}
+.pay-copy-row button {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid rgba(247, 251, 248, 0.12);
+  background: transparent;
+  color: rgba(247, 251, 248, 0.7);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.pay-copy-row button:hover { color: var(--lime); }
+.pay-result-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  margin-bottom: 18px;
+  background: rgba(198, 232, 0, 0.16);
+  color: var(--lime);
+}
+.pay-result-icon[data-ok='false'] {
+  background: rgba(255, 143, 122, 0.16);
+  color: #ff8f7a;
+}
+
 @media (max-width: 980px) {
   .mt-sidebar {
     position: relative;
@@ -2869,4 +2948,57 @@ a.auth-submit {
     grid-template-columns: 1fr;
   }
   .otp-donut-wrap { grid-template-columns: 1fr; justify-items: center; }
+}
+
+.page-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: #050807;
+  animation: page-loader-in 0.28s ease;
+}
+.page-loader-inner {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  display: grid;
+  place-items: center;
+}
+.page-loader-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(198, 232, 0, 0.18);
+  border-top-color: var(--lime);
+  animation: page-loader-spin 0.75s linear infinite;
+}
+.page-loader-logo {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  animation: page-loader-pulse 1.2s ease-in-out infinite;
+}
+.page-loader-text {
+  margin: 0;
+  color: var(--lime);
+  font-family: Silka-Bold, sans-serif;
+  font-weight: 400;
+  font-size: 0.78rem;
+  letter-spacing: 0.22em;
+}
+@keyframes page-loader-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes page-loader-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes page-loader-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(0.92); opacity: 0.72; }
 }

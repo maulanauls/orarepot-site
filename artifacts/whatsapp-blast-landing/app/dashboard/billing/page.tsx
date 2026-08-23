@@ -1,5 +1,5 @@
-import { EmptyPage } from '@/components/dashboard/empty-page';
+import { BillingPage } from '@/components/dashboard/billing-page';
 
 export default function Page() {
-  return <EmptyPage title="Billing" subtitle="Kelola langganan dan pembayaran." />;
+  return <BillingPage />;
 }

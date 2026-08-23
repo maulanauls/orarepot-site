@@ -160,7 +160,11 @@ export function Navbar() {
             <Link href="/harga/di/orarepot" onClick={() => setOpenMenu(false)}>
               {t('nav.pricing')}
             </Link>
-            <Link href="/sign-in" onClick={() => setOpenMenu(false)}>
+            <Link
+              href="/sign-in"
+              className="nav-login"
+              onClick={() => setOpenMenu(false)}
+            >
               {t('common.signIn')}
             </Link>
             <Link href="/demo/di/orarepot" className="nav-cta" onClick={() => setOpenMenu(false)}>

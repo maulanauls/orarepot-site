@@ -1,5 +1,5 @@
-import { EmptyPage } from '@/components/dashboard/empty-page';
+import { OtpSendPage } from '@/components/dashboard/otp-send';
 
 export default function Page() {
-  return <EmptyPage title="Kirim OTP" subtitle="Kirim OTP tunggal atau bulk." />;
+  return <OtpSendPage />;
 }

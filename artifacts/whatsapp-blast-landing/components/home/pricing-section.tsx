@@ -61,6 +61,7 @@ const featureGroups: FeatureGroup[] = [
       { label: 'Broadcast kampanye', values: [false, true, true] },
       { label: 'Unlimited broadcast*', values: [false, true, true] },
       { label: 'OTP verifikasi resmi', values: [true, false, true] },
+      { label: 'Biaya per pesan OTP', values: ['Rp 600', '—', 'Rp 600'] },
       { label: 'Laporan terkirim & terbaca', values: ['Dasar', 'Lengkap', 'Lengkap'] },
     ],
   },

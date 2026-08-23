@@ -5,6 +5,8 @@ import { ChevronRight } from 'lucide-react';
 import { MENU_SIDEBAR, MENU_SIDEBAR_ADMIN } from '@/config/layout-1.config';
 import { MenuItem } from '@/config/types';
 import { cn } from '@/lib/utils';
+import { useT } from '@/components/i18n/locale-provider';
+import { MENU_I18N } from '@/lib/i18n/menu-keys';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 
@@ -21,12 +23,18 @@ function resolveCurrent(items: MenuItem[], pathname: string): MenuItem | undefin
 /** Header left nav — Metronic mega-menu slot, Ora breadcrumb content */
 export function MegaMenu() {
   const pathname = usePathname();
+  const t = useT();
   const isAdmin = pathname.startsWith('/admin');
   const rootHref = isAdmin ? '/admin' : '/dashboard';
-  const rootLabel = isAdmin ? 'Admin' : 'Dashboard';
+  const rootLabel = t(isAdmin ? 'menu.adminHeading' : 'menu.dashboard');
   const menu = isAdmin ? MENU_SIDEBAR_ADMIN : MENU_SIDEBAR;
 
   const current = useMemo(() => resolveCurrent(menu, pathname), [menu, pathname]);
+  const currentLabel = current
+    ? current.path && MENU_I18N[current.path]
+      ? t(MENU_I18N[current.path])
+      : current.title
+    : '';
 
   return (
     <div className="hidden lg:flex items-center gap-1.5 min-w-0 ps-8">
@@ -43,7 +51,7 @@ export function MegaMenu() {
         <Fragment>
           <ChevronRight className="size-3.5 text-muted-foreground shrink-0" />
           <span className="text-sm font-medium text-primary truncate">
-            {current.title}
+            {currentLabel}
           </span>
         </Fragment>
       )}

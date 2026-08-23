@@ -248,8 +248,12 @@ export function OtpOverviewPage() {
                         className="size-10 rounded-full border-2 border-background object-cover"
                       />
                     ))}
-                    <span className="size-10 rounded-full border-2 border-background bg-green-500 text-white text-xs font-medium inline-flex items-center justify-center">
-                      +
+                    <span className="size-10 rounded-full border-2 border-background bg-[#0f6b66] inline-flex items-center justify-center overflow-hidden">
+                      <img
+                        src={toAbsoluteUrl('/logo-orarepot-icon.png')}
+                        alt=""
+                        className="size-5 object-contain"
+                      />
                     </span>
                   </div>
                   <h2 className="text-xl font-semibold text-mono">

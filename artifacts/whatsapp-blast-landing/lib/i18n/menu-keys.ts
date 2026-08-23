@@ -11,6 +11,7 @@ export const MENU_I18N: Record<string, string> = {
   '/dashboard/otp/logs': 'menu.otpLogs',
   '/dashboard/otp/templates': 'menu.otpTemplates',
   '/dashboard/otp/settings': 'menu.otpSettings',
+  '/dashboard/otp/verifikasi': 'menu.otpVerify',
   Account: 'menu.accountHeading',
   '/dashboard/billing': 'menu.billing',
   '/dashboard/settings': 'menu.settings',
@@ -21,3 +22,29 @@ export const MENU_I18N: Record<string, string> = {
   '/admin/otp': 'menu.adminOtp',
   '/admin/settings': 'menu.adminSettings',
 };
+
+export const PAGE_SUBTITLE: Record<string, string> = {
+  '/dashboard': 'page.overview',
+  '/dashboard/whatsapp': 'page.whatsapp',
+  '/dashboard/ai': 'page.ai',
+  '/dashboard/broadcast': 'page.broadcast',
+  '/dashboard/analytics': 'page.analytics',
+  '/dashboard/otp': 'page.otpOverview',
+  '/dashboard/otp/kirim': 'page.otpSend',
+  '/dashboard/otp/logs': 'page.otpLogs',
+  '/dashboard/otp/templates': 'page.otpTemplates',
+  '/dashboard/otp/settings': 'page.otpSettings',
+  '/dashboard/otp/verifikasi': 'page.otpVerify',
+  '/dashboard/billing': 'page.billing',
+  '/dashboard/settings': 'page.settings',
+  '/admin': 'page.adminOverview',
+  '/admin/users': 'page.adminUsers',
+  '/admin/subscriptions': 'page.adminSubscriptions',
+  '/admin/otp': 'page.adminOtp',
+  '/admin/settings': 'page.adminSettings',
+};
+
+export function menuTitleKey(pathOrHeading?: string) {
+  if (!pathOrHeading) return undefined;
+  return MENU_I18N[pathOrHeading];
+}
