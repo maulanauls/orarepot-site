@@ -15,7 +15,7 @@ export function Footer() {
             <a href="/products" className="hover:text-primary">
               Produk
             </a>
-            <a href="/pricing" className="hover:text-primary">
+            <a href="/harga/di/orarepot" className="hover:text-primary">
               Harga
             </a>
             <a href="/sign-in" className="hover:text-primary">

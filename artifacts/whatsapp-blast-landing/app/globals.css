@@ -936,6 +936,40 @@ html.dashboard-font .lang-switch button {
   border-top: none;
 }
 
+/* Docs article — Metronic content, not marketing Silka */
+.docs-article h2 {
+  margin: 2rem 0 0.5rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+.docs-article p,
+.docs-article li {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--muted-foreground);
+}
+.docs-article p + p,
+.docs-article ul + p,
+.docs-article ol + p,
+.docs-article p + ul,
+.docs-article p + ol {
+  margin-top: 0.75rem;
+}
+.docs-article ul,
+.docs-article ol {
+  margin: 0.75rem 0 0;
+  padding-inline-start: 1.25rem;
+}
+.docs-article :not(pre) > code {
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.35rem;
+  background: var(--muted);
+}
+
 /* Pricing page hero */
 .pricing-page-hero {
   background:

@@ -151,7 +151,7 @@ export function getApiRequestLogs(): OtpApiRequestLog[] {
     {
       id: 'req_demo_1',
       method: 'POST',
-      path: '/api/v1/otp/send',
+      path: '/v1/otp/send',
       status: 200,
       createdAt: new Date(Date.now() - 3600_000).toISOString(),
       keyPrefix: 'orp_live_ab',
@@ -159,7 +159,7 @@ export function getApiRequestLogs(): OtpApiRequestLog[] {
     {
       id: 'req_demo_2',
       method: 'GET',
-      path: '/api/v1/otp/logs',
+      path: '/v1/otp/logs',
       status: 200,
       createdAt: new Date(Date.now() - 7200_000).toISOString(),
       keyPrefix: 'orp_live_ab',
@@ -167,7 +167,7 @@ export function getApiRequestLogs(): OtpApiRequestLog[] {
     {
       id: 'req_demo_3',
       method: 'POST',
-      path: '/api/v1/otp/send',
+      path: '/v1/otp/send',
       status: 401,
       createdAt: new Date(Date.now() - 10_800_000).toISOString(),
       keyPrefix: '—',

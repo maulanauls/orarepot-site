@@ -8,6 +8,7 @@ function isAppShell(pathname: string) {
   return (
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/admin') ||
+    pathname.startsWith('/docs') ||
     pathname.startsWith('/pay') ||
     pathname.startsWith('/sign-in') ||
     pathname.startsWith('/register') ||

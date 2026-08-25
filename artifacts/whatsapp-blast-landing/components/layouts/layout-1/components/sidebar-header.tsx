@@ -1,11 +1,15 @@
 import { ChevronFirst } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 import { toAbsoluteUrl } from '@/lib/helpers';
+import { layoutHomeHref } from '@/lib/layout-mode';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useLayout } from './context';
 import Link from 'next/link';
 
 export function SidebarHeader() {
+  const pathname = usePathname();
+  const homeHref = layoutHomeHref(pathname);
   const { sidebarCollapse, setSidebarCollapse } = useLayout();
 
   const handleToggleClick = () => {
@@ -14,7 +18,7 @@ export function SidebarHeader() {
 
   return (
     <div className="sidebar-header hidden lg:flex items-center relative justify-between px-3 lg:px-6 shrink-0">
-      <Link href="/dashboard">
+      <Link href={homeHref}>
         <div className="dark:hidden">
           <img
             src={toAbsoluteUrl('/logo-orarepot.png')}

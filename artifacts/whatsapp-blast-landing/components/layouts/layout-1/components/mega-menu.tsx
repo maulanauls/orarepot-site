@@ -2,7 +2,9 @@
 
 import { Fragment, useMemo } from 'react';
 import { ChevronRight } from 'lucide-react';
+import { MENU_DOCS } from '@/config/docs.config';
 import { MENU_SIDEBAR, MENU_SIDEBAR_ADMIN } from '@/config/layout-1.config';
+import { isDocsPath } from '@/lib/layout-mode';
 import { MenuItem } from '@/config/types';
 import { cn } from '@/lib/utils';
 import { useT } from '@/components/i18n/locale-provider';
@@ -24,16 +26,21 @@ function resolveCurrent(items: MenuItem[], pathname: string): MenuItem | undefin
 export function MegaMenu() {
   const pathname = usePathname();
   const t = useT();
+  const docs = isDocsPath(pathname);
   const isAdmin = pathname.startsWith('/admin');
-  const rootHref = isAdmin ? '/admin' : '/dashboard';
-  const rootLabel = t(isAdmin ? 'menu.adminHeading' : 'menu.dashboard');
-  const menu = isAdmin ? MENU_SIDEBAR_ADMIN : MENU_SIDEBAR;
+  const rootHref = docs ? '/docs' : isAdmin ? '/admin' : '/dashboard';
+  const rootLabel = docs
+    ? 'Docs'
+    : t(isAdmin ? 'menu.adminHeading' : 'menu.dashboard');
+  const menu = docs ? MENU_DOCS : isAdmin ? MENU_SIDEBAR_ADMIN : MENU_SIDEBAR;
 
   const current = useMemo(() => resolveCurrent(menu, pathname), [menu, pathname]);
   const currentLabel = current
-    ? current.path && MENU_I18N[current.path]
-      ? t(MENU_I18N[current.path])
-      : current.title
+    ? docs
+      ? current.title
+      : current.path && MENU_I18N[current.path]
+        ? t(MENU_I18N[current.path])
+        : current.title
     : '';
 
   return (

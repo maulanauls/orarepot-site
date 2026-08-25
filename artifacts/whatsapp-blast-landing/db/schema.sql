@@ -1,0 +1,19 @@
+-- One service, one database.
+--   Service:  orarepot-<domain>   (kebab-case)
+--   Database: orarepot_<domain>   (snake_case)
+--
+--   createdb orarepot_identity   && psql orarepot_identity   -f db/identity.sql     -- orarepot-identity
+--   createdb orarepot_members    && psql orarepot_members    -f db/members.sql      -- orarepot-members
+--   createdb orarepot_merchant   && psql orarepot_merchant   -f db/merchant.sql     -- orarepot-merchant
+--   createdb orarepot_billing    && psql orarepot_billing    -f db/billing.sql      -- orarepot-billing
+--   createdb orarepot_templates  && psql orarepot_templates  -f db/templates.sql    -- orarepot-templates
+--   createdb orarepot_otp        && psql orarepot_otp        -f db/otp.sql          -- orarepot-otp
+--   createdb orarepot_developer  && psql orarepot_developer  -f db/developer.sql    -- orarepot-developer
+--
+-- No foreign keys across databases. Logical refs are uuid columns + indexes.
+-- Sync via API + Kafka (outbox / CDC). Reporting warehouse is separate.
+--
+-- Public hosts (not databases):
+--   https://orarepot.com          dashboard / pay
+--   https://api.orarepot.com      white-label REST (orarepot-developer)
+--   https://docs.orarepot.com     OTP integration docs (static site, no DB)

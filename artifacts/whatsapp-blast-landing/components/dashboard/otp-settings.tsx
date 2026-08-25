@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import {
   BookOpen,
   CheckCircle2,
+  CircleHelp,
   Copy,
   KeyRound,
   ScrollText,
@@ -30,6 +30,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DOCS_BASE_URL, OTP_SEND_URL } from '@/lib/hosts';
 import {
   OTP_WEBHOOK_EVENTS,
   createApiKey,
@@ -132,7 +133,17 @@ export function OtpSettingsPage() {
   }
 
   return (
-    <DashboardShell title={t('menu.otpSettings')} subtitle={t('otp.devSubtitle')}>
+    <DashboardShell
+      title={t('menu.otpSettings')}
+      subtitle={t('otp.devSubtitle')}
+      actions={
+        <Button variant="outline" asChild>
+          <a href={DOCS_BASE_URL} target="_blank" rel="noreferrer">
+            <CircleHelp /> {t('otp.devDocs')}
+          </a>
+        </Button>
+      }
+    >
       <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)} className="w-full">
         <TabsList variant="line" className="mb-5 w-full justify-start overflow-x-auto">
           <TabsTrigger value="summary">{t('otp.devSummary')}</TabsTrigger>
@@ -148,9 +159,9 @@ export function OtpSettingsPage() {
               <p className="text-sm font-semibold m-0">{t('otp.devWindowTitle')}</p>
               <p className="text-sm text-muted-foreground m-0 mt-1">{t('otp.devWindowBody')}</p>
               <Button variant="outline" size="sm" className="mt-3" asChild>
-                <Link href="/dashboard/otp/templates">
+                <a href={`${DOCS_BASE_URL}/guides/templates`} target="_blank" rel="noreferrer">
                   <BookOpen /> {t('otp.devWindowLink')}
-                </Link>
+                </a>
               </Button>
             </CardContent>
           </Card>
@@ -240,7 +251,7 @@ export function OtpSettingsPage() {
                 ))
               )}
               <p className="text-xs text-muted-foreground m-0 pt-2">
-                {t('otp.devApiHint')}
+                {`POST ${OTP_SEND_URL} — Authorization: Bearer orp_live_…`}
               </p>
             </CardContent>
           </Card>

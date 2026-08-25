@@ -1,7 +1,9 @@
 'use client';
 
 import { JSX, useCallback, useMemo } from 'react';
+import { MENU_DOCS } from '@/config/docs.config';
 import { MENU_SIDEBAR, MENU_SIDEBAR_ADMIN } from '@/config/layout-1.config';
+import { isDocsPath } from '@/lib/layout-mode';
 import { MenuConfig, MenuItem } from '@/config/types';
 import { cn } from '@/lib/utils';
 import {
@@ -24,13 +26,16 @@ import Link from 'next/link';
 export function SidebarMenu() {
   const pathname = usePathname();
   const t = useT();
-  const menu = useMemo(
-    () => (pathname.startsWith('/admin') ? MENU_SIDEBAR_ADMIN : MENU_SIDEBAR),
-    [pathname],
-  );
+  const docs = isDocsPath(pathname);
+  const menu = useMemo(() => {
+    if (docs) return MENU_DOCS;
+    if (pathname.startsWith('/admin')) return MENU_SIDEBAR_ADMIN;
+    return MENU_SIDEBAR;
+  }, [docs, pathname]);
 
   const labelFor = useCallback(
     (item: MenuItem) => {
+      if (docs) return item.heading ?? item.title ?? '';
       if (item.heading) {
         const key = MENU_I18N[item.heading];
         return key ? t(key) : item.heading;
@@ -40,7 +45,7 @@ export function SidebarMenu() {
       }
       return item.title ?? '';
     },
-    [t],
+    [docs, t],
   );
 
   const matchPath = useCallback(
@@ -111,13 +116,25 @@ export function SidebarMenu() {
           value={item.path || ''}
           className="text-sm font-medium"
         >
-          <Link
-            href={item.path || '#'}
-            className="flex items-center grow gap-2.5"
-          >
-            {item.icon && <item.icon data-slot="accordion-menu-icon" />}
-            <span data-slot="accordion-menu-title">{labelFor(item)}</span>
-          </Link>
+          {item.path?.startsWith('http') ? (
+            <a
+              href={item.path}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center grow gap-2.5"
+            >
+              {item.icon && <item.icon data-slot="accordion-menu-icon" />}
+              <span data-slot="accordion-menu-title">{labelFor(item)}</span>
+            </a>
+          ) : (
+            <Link
+              href={item.path || '#'}
+              className="flex items-center grow gap-2.5"
+            >
+              {item.icon && <item.icon data-slot="accordion-menu-icon" />}
+              <span data-slot="accordion-menu-title">{labelFor(item)}</span>
+            </Link>
+          )}
         </AccordionMenuItem>
       );
     }

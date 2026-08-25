@@ -1,0 +1,59 @@
+%% Ora Repot — 1 service owns 1 database
+%% Box     = service   orarepot-<domain>
+%% Cylinder = database orarepot_<domain>
+%% Public hosts: orarepot.com (dashboard) · api.orarepot.com · docs.orarepot.com
+%% Cross-service: HTTP API + Kafka. No FK across databases.
+
+flowchart TB
+  subgraph identity["orarepot-identity"]
+    identityDb[("orarepot_identity")]
+  end
+
+  subgraph members["orarepot-members"]
+    membersDb[("orarepot_members")]
+  end
+
+  subgraph merchant["orarepot-merchant"]
+    merchantDb[("orarepot_merchant")]
+  end
+
+  subgraph billing["orarepot-billing"]
+    billingDb[("orarepot_billing")]
+  end
+
+  subgraph templates["orarepot-templates"]
+    templatesDb[("orarepot_templates")]
+  end
+
+  subgraph otp["orarepot-otp"]
+    otpDb[("orarepot_otp")]
+  end
+
+  subgraph developer["orarepot-developer"]
+    developerDb[("orarepot_developer")]
+  end
+
+  subgraph reporting["orarepot-reporting"]
+    warehouseDb[("orarepot_warehouse")]
+  end
+
+  kafka["Kafka"]
+  wlApi["api.orarepot.com"]
+  docs["docs.orarepot.com"]
+
+  docs -.->|"OTP integration guides"| wlApi
+  wlApi -->|"Bearer orp_live_…"| developer
+
+  otp -->|"HTTP GetTemplate"| templates
+  otp -->|"HTTP ReserveDebit / Capture / Release"| billing
+  members -->|"HTTP GetUser"| identity
+
+  identity -->|"user.created"| kafka
+  members -->|"member.invited / joined"| kafka
+  merchant -->|"merchant.created"| kafka
+  templates -->|"template.updated"| kafka
+  billing -->|"wallet.reserved / captured / released"| kafka
+  otp -->|"otp.sent / otp.failed"| kafka
+
+  kafka --> developer
+  kafka --> reporting

@@ -1,3 +1,5 @@
+import { DOCS_BASE_URL } from '@/lib/hosts';
+
 /** Map menu path / heading → i18n key under `menu.*` */
 export const MENU_I18N: Record<string, string> = {
   '/dashboard': 'menu.overview',
@@ -13,8 +15,12 @@ export const MENU_I18N: Record<string, string> = {
   '/dashboard/otp/settings': 'menu.otpSettings',
   '/dashboard/otp/verifikasi': 'menu.otpVerify',
   Account: 'menu.accountHeading',
+  '/dashboard/members': 'menu.members',
   '/dashboard/billing': 'menu.billing',
   '/dashboard/settings': 'menu.settings',
+  Developers: 'menu.developersHeading',
+  [DOCS_BASE_URL]: 'menu.docs',
+  docs: 'menu.docs',
   Admin: 'menu.adminHeading',
   '/admin': 'menu.adminOverview',
   '/admin/users': 'menu.adminUsers',
@@ -35,6 +41,7 @@ export const PAGE_SUBTITLE: Record<string, string> = {
   '/dashboard/otp/templates': 'page.otpTemplates',
   '/dashboard/otp/settings': 'page.otpSettings',
   '/dashboard/otp/verifikasi': 'page.otpVerify',
+  '/dashboard/members': 'page.members',
   '/dashboard/billing': 'page.billing',
   '/dashboard/settings': 'page.settings',
   '/admin': 'page.adminOverview',

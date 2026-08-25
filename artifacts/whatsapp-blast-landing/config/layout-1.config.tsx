@@ -1,6 +1,7 @@
 import {
   BarChart3,
   Bot,
+  CircleHelp,
   CreditCard,
   FileText,
   LayoutDashboard,
@@ -14,6 +15,7 @@ import {
   Users,
 } from 'lucide-react';
 import { MenuConfig } from '@/config/types';
+import { DOCS_BASE_URL } from '@/lib/hosts';
 
 export const MENU_SIDEBAR: MenuConfig = [
   {
@@ -69,6 +71,11 @@ export const MENU_SIDEBAR: MenuConfig = [
   },
   { heading: 'Account' },
   {
+    title: 'Members',
+    icon: Users,
+    path: '/dashboard/members',
+  },
+  {
     title: 'Billing',
     icon: CreditCard,
     path: '/dashboard/billing',
@@ -77,6 +84,12 @@ export const MENU_SIDEBAR: MenuConfig = [
     title: 'Settings',
     icon: Settings2,
     path: '/dashboard/settings',
+  },
+  { heading: 'Developers' },
+  {
+    title: 'Dokumentasi',
+    icon: CircleHelp,
+    path: DOCS_BASE_URL,
   },
 ];
 
