@@ -4,7 +4,6 @@ import { LocaleProvider } from '@/components/i18n/locale-provider';
 import { SiteChrome } from '@/components/layout/site-chrome';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { dashboardPoppins } from '@/lib/fonts/dashboard';
-import { landingJakarta } from '@/lib/fonts/landing';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -40,7 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="id"
-      className={`h-full w-full ${landingJakarta.variable} ${dashboardPoppins.variable}`}
+      className={`h-full w-full ${dashboardPoppins.variable}`}
       suppressHydrationWarning
     >
       <body className="antialiased m-0 min-h-full h-full w-full text-base text-foreground bg-background">
