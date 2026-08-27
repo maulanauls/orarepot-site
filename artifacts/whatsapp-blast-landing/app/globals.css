@@ -946,20 +946,9 @@ html.dashboard-font .lang-switch button {
   font-size: 1.05rem;
   letter-spacing: -0.02em;
 }
-.meta-partner-mark img {
-  height: 28px;
-  width: auto;
-  display: block;
-  filter: brightness(0) invert(1);
-}
 .meta-partner-whatsapp-icon {
   width: 22px;
   height: 22px;
-}
-.meta-partner-divider {
-  width: 1px;
-  height: 22px;
-  background: rgba(255, 255, 255, 0.35);
 }
 .meta-partner-badge {
   position: relative;

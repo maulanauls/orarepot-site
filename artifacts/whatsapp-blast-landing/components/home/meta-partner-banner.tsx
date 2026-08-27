@@ -46,10 +46,6 @@ export function MetaPartnerBanner() {
             </p>
             <div className="meta-partner-marks">
               <span className="meta-partner-mark">
-                <img src="/logo-orarepot.png" alt="Ora Repot" />
-              </span>
-              <span className="meta-partner-divider" aria-hidden="true" />
-              <span className="meta-partner-mark">
                 <WhatsAppMark />
                 <span>WhatsApp</span>
               </span>
