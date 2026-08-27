@@ -6,6 +6,7 @@ import { ThemeProvider as NextThemesProvider } from 'next-themes';
 type Props = React.PropsWithChildren<{
   attribute?: 'class' | 'data-theme';
   defaultTheme?: string;
+  forcedTheme?: string;
   enableSystem?: boolean;
   disableTransitionOnChange?: boolean;
 }>;
