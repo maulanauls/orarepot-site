@@ -108,6 +108,9 @@ export const id: Messages = {
     closingTitle: 'Siap jualan WhatsApp tanpa ribet?',
     closingBody:
       'Mulai dari demo AI Assistant, messaging resmi, atau kebutuhan digital Anda hari ini.',
+    metaPartnerTitle: 'Meta Business Partner',
+    metaPartnerBody: 'Ora Repot telah diterima sebagai {link}.',
+    metaPartnerLink: 'Badged WhatsApp Partner',
   },
   products: {
     agenticAiLabel: 'Agentic AI',
@@ -719,6 +722,9 @@ export const en: Messages = {
     closingTitle: 'Ready to sell on WhatsApp without the hassle?',
     closingBody:
       'Start with an AI Assistant demo, official messaging, or your digital needs today.',
+    metaPartnerTitle: 'Meta Business Partner',
+    metaPartnerBody: 'Ora Repot has been welcomed as a {link}.',
+    metaPartnerLink: 'Badged WhatsApp Partner',
   },
   products: {
     agenticAiLabel: 'Agentic AI',

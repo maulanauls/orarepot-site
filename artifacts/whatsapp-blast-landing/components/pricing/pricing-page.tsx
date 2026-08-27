@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
+import { MetaPartnerBanner } from '@/components/home/meta-partner-banner';
 import { PricingSection } from '@/components/home/pricing-section';
 
 export function PricingPage() {
@@ -19,6 +20,8 @@ export function PricingPage() {
       </section>
 
       <PricingSection showIntro={false} />
+
+      <MetaPartnerBanner />
 
       <section className="closing">
         <div className="container closing-inner">

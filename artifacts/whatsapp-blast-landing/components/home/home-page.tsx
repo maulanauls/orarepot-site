@@ -15,6 +15,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useLocale } from '@/components/i18n/locale-provider';
+import { MetaPartnerBanner } from '@/components/home/meta-partner-banner';
 import { getLocalizedProducts } from '@/lib/i18n/products';
 
 export function HomePage() {
@@ -238,6 +239,8 @@ export function HomePage() {
           </div>
         </div>
       </section>
+
+      <MetaPartnerBanner />
 
       <section className="closing">
         <div className="container closing-inner">
