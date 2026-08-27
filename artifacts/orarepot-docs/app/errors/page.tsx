@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { Article, CodeBlock } from '@/components/docs-shell';
+import { Article } from '@/components/docs-shell';
+import { CodeBlock } from '@/components/docs-code';
 
 export const metadata: Metadata = { title: 'Errors' };
 
@@ -11,7 +12,7 @@ export default function Page() {
       lead="Error codes are stable. Branch on code, not on the human message."
     >
       <h2 id="shape">Envelope</h2>
-      <CodeBlock>
+      <CodeBlock title="JSON" lang="json">
         {`{
   "error": {
     "code": "insufficient_balance",

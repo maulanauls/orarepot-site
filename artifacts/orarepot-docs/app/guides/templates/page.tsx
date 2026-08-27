@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { Article, CodeBlock } from '@/components/docs-shell';
+import { Article } from '@/components/docs-shell';
+import { CodeBlock } from '@/components/docs-code';
 
 export const metadata: Metadata = { title: 'Templates' };
 
@@ -15,7 +16,7 @@ export default function Page() {
         the API will send. The code placeholder is {'{{1}}'}.
       </p>
       <h2 id="send">Send with a template name</h2>
-      <CodeBlock>{`{ "to": "+628123456789", "template": "otp_login" }`}</CodeBlock>
+      <CodeBlock title="JSON" lang="json">{`{ "to": "+628123456789", "template": "otp_login" }`}</CodeBlock>
     </Article>
   );
 }

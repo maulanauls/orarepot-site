@@ -59,9 +59,46 @@ html.dashboard-font [data-slot='sheet-content'] *:not(svg):not(path) {
 }
 
 .docs-article :not(pre) > code {
-  font-size: 0.75rem;
+  font-family: 'Courier New', Courier, ui-monospace, monospace !important;
+  font-size: 0.78rem;
   font-weight: 500;
-  padding: 0.1rem 0.35rem;
-  border-radius: 0.35rem;
-  background: var(--muted);
+  padding: 0.12rem 0.4rem;
+  border-radius: 0.4rem;
+  color: #7c3aed;
+  background: color-mix(in srgb, #7c3aed 10%, white);
+}
+
+.docs-code-body,
+.docs-code-body *,
+.docs-code .shiki,
+.docs-code .shiki span,
+.docs-code .shiki code {
+  font-family: 'Courier New', Courier, ui-monospace, monospace !important;
+}
+
+.docs-code-body {
+  background: #1e1e2e;
+}
+
+.docs-code .shiki {
+  margin: 0;
+  padding: 1rem 1.15rem 1.15rem;
+  overflow-x: auto;
+  background: transparent !important;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.docs-code .shiki code {
+  display: block;
+  min-width: max-content;
+}
+
+.docs-code .shiki .line {
+  display: inline-block;
+  min-width: 100%;
+}
+
+.docs-code .shiki .line:empty::before {
+  content: ' ';
 }

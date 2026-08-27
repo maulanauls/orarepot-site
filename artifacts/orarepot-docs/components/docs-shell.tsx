@@ -106,66 +106,6 @@ function Toc() {
   );
 }
 
-export function CodeTabs({
-  tabs,
-}: {
-  tabs: { label: string; code: string }[];
-}) {
-  const [active, setActive] = useState(0);
-  const [copied, setCopied] = useState(false);
-  const current = tabs[active] ?? tabs[0];
-
-  async function copy() {
-    await navigator.clipboard.writeText(current.code);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1200);
-  }
-
-  return (
-    <Card className="my-5 overflow-hidden">
-      <div className="flex items-center gap-1 border-b border-border px-2 min-h-11">
-        {tabs.map((tab, index) => (
-          <button
-            key={tab.label}
-            type="button"
-            onClick={() => setActive(index)}
-            className={
-              active === index
-                ? 'h-11 px-3 text-xs font-medium text-primary border-b-2 border-primary'
-                : 'h-11 px-3 text-xs font-medium text-muted-foreground hover:text-foreground'
-            }
-          >
-            {tab.label}
-          </button>
-        ))}
-        <Button
-          variant="ghost"
-          mode="icon"
-          size="sm"
-          className="ms-auto"
-          onClick={copy}
-          aria-label="Copy code"
-        >
-          {copied ? <Check /> : <Copy />}
-        </Button>
-      </div>
-      <pre className="m-0 overflow-x-auto bg-zinc-950 p-4 text-[13px] leading-6 text-zinc-100">
-        <code>{current.code}</code>
-      </pre>
-    </Card>
-  );
-}
-
-export function CodeBlock({
-  title,
-  children,
-}: {
-  title?: string;
-  children: string;
-}) {
-  return <CodeTabs tabs={[{ label: title ?? 'Code', code: children }]} />;
-}
-
 export function Cards({
   items,
 }: {

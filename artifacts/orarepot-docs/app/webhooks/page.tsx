@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { Article, CodeBlock } from '@/components/docs-shell';
+import { Article } from '@/components/docs-shell';
+import { CodeBlock } from '@/components/docs-code';
 
 export const metadata: Metadata = { title: 'Webhooks' };
 
@@ -15,10 +16,10 @@ export default function Page() {
         you save or rotate.
       </p>
       <h2 id="headers">Headers</h2>
-      <CodeBlock>{`X-OraRepot-Signature: sha256=<hex>
+      <CodeBlock title="Headers" lang="http">{`X-OraRepot-Signature: sha256=<hex>
 X-OraRepot-Event: otp.sent`}</CodeBlock>
       <h2 id="body">Body</h2>
-      <CodeBlock title="otp.sent">
+      <CodeBlock title="otp.sent" lang="json">
         {`{
   "id": "evt_01J…",
   "event": "otp.sent",

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { Article, CodeBlock } from '@/components/docs-shell';
+import { Article } from '@/components/docs-shell';
+import { CodeBlock } from '@/components/docs-code';
 
 export const metadata: Metadata = { title: 'Send OTP' };
 
@@ -11,7 +12,7 @@ export default function Page() {
       lead="POST /v1/otp/send. The template must be AUTHENTICATION and ACTIVE. The code fills placeholder {{1}}."
     >
       <h2 id="request">Request</h2>
-      <CodeBlock title="JSON">
+      <CodeBlock title="JSON" lang="json">
         {`{
   "to": "+628123456789",
   "template": "otp_login",
@@ -24,7 +25,7 @@ export default function Page() {
         after WhatsApp accepts the send.
       </p>
       <h2 id="response">Response</h2>
-      <CodeBlock>
+      <CodeBlock title="Response" lang="json">
         {`{
   "request_id": "req_01J…",
   "status": "success",

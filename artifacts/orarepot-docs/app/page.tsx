@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { Article, Cards, CodeTabs } from '@/components/docs-shell';
+import { Article, Cards } from '@/components/docs-shell';
+import { CodeTabs } from '@/components/docs-code';
 
 export const metadata: Metadata = { title: 'Overview' };
 
