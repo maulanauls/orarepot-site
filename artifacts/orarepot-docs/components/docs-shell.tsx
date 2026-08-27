@@ -131,14 +131,18 @@ export function Cards({
         if (item.href) {
           return (
             <Link key={item.title} href={item.href} className="block h-full">
-              <Card className="h-full transition-colors hover:border-primary/40">
+              <Card className="h-full bg-card/80 backdrop-blur-sm transition-colors hover:border-primary/40">
                 {inner}
               </Card>
             </Link>
           );
         }
 
-        return <Card key={item.title}>{inner}</Card>;
+        return (
+          <Card key={item.title} className="bg-card/80 backdrop-blur-sm">
+            {inner}
+          </Card>
+        );
       })}
     </div>
   );

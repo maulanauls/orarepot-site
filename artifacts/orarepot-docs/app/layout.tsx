@@ -7,8 +7,8 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: {
-    default: 'Docs',
-    template: '%s | Ora Repot Docs',
+    default: 'DOCS',
+    template: '%s | ORA REPOT DOCS',
   },
   description: 'OTP WhatsApp API — api.orarepot.com',
   icons: {
@@ -20,13 +20,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="id"
-      className={`h-full w-full ${dashboardPoppins.variable}`}
+      className={`h-full w-full dark ${dashboardPoppins.variable}`}
       suppressHydrationWarning
     >
       <body className="antialiased m-0 min-h-full h-full w-full text-base text-foreground bg-background">
         <ThemeProvider
           attribute="class"
-          defaultTheme="light"
+          defaultTheme="dark"
+          forcedTheme="dark"
           enableSystem={false}
           disableTransitionOnChange
         >

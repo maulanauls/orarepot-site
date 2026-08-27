@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { Article } from '@/components/docs-shell';
 import { CodeBlock } from '@/components/docs-code';
 
-export const metadata: Metadata = { title: 'Authentication' };
+export const metadata: Metadata = { title: 'AUTHENTICATION' };
 
 export default function Page() {
   return (

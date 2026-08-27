@@ -1,5 +1,80 @@
 @import '../styles/metronic-base.css';
 
+:root,
+.dark {
+  --lime: #c6e800;
+  --lime-soft: #d4f033;
+  --teal: #0f6b66;
+  --teal-deep: #0a4f4b;
+  --ink: #0c1413;
+  --background: #050807;
+  --foreground: #f7fbf8;
+  --card: rgba(12, 28, 26, 0.72);
+  --card-foreground: #f7fbf8;
+  --popover: #0c1816;
+  --popover-foreground: #f7fbf8;
+  --primary: #c6e800;
+  --primary-foreground: #0c1413;
+  --secondary: rgba(15, 107, 102, 0.32);
+  --secondary-foreground: #e8f0ed;
+  --muted: rgba(247, 251, 248, 0.08);
+  --muted-foreground: rgba(247, 251, 248, 0.58);
+  --accent: rgba(198, 232, 0, 0.12);
+  --accent-foreground: #c6e800;
+  --border: rgba(198, 232, 0, 0.14);
+  --input: rgba(247, 251, 248, 0.14);
+  --ring: #c6e800;
+  --mono: #f7fbf8;
+}
+
+html {
+  color-scheme: dark;
+  background-color: #050807;
+  background-image:
+    radial-gradient(ellipse 70% 50% at 88% 0%, rgba(198, 232, 0, 0.14), transparent 55%),
+    radial-gradient(ellipse 55% 48% at 0% 100%, rgba(15, 107, 102, 0.52), transparent 58%),
+    radial-gradient(ellipse 42% 32% at 52% 42%, rgba(7, 53, 50, 0.5), transparent 70%),
+    linear-gradient(155deg, #050807 0%, #0a1a18 42%, #073532 100%);
+  background-attachment: fixed;
+}
+
+html::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.28;
+  background-image: radial-gradient(rgba(198, 232, 0, 0.14) 1px, transparent 1px);
+  background-size: 24px 24px;
+  mask-image: linear-gradient(130deg, black 0%, transparent 72%);
+}
+
+body {
+  position: relative;
+  z-index: 1;
+  background: transparent !important;
+  color: var(--foreground);
+}
+
+.dashboard-app,
+.demo1,
+.demo1 .wrapper,
+.demo1 main {
+  background: transparent;
+}
+
+.demo1 .header {
+  background: rgba(5, 8, 7, 0.42) !important;
+  backdrop-filter: blur(16px);
+  border-color: rgba(198, 232, 0, 0.1);
+}
+
+.demo1 .sidebar {
+  background: rgba(5, 8, 7, 0.32) !important;
+  border-color: rgba(198, 232, 0, 0.12) !important;
+}
+
 html.dashboard-font {
   --font-sans: var(--font-poppins), 'Poppins', sans-serif;
 }
@@ -64,8 +139,17 @@ html.dashboard-font [data-slot='sheet-content'] *:not(svg):not(path) {
   font-weight: 500;
   padding: 0.12rem 0.4rem;
   border-radius: 0.4rem;
-  color: #7c3aed;
-  background: color-mix(in srgb, #7c3aed 10%, white);
+  color: var(--lime);
+  background: rgba(198, 232, 0, 0.12);
+}
+
+.docs-article a {
+  color: var(--lime);
+  text-underline-offset: 3px;
+}
+
+.docs-article a:hover {
+  color: var(--lime-soft, #d4f033);
 }
 
 .docs-code-body,
@@ -77,7 +161,7 @@ html.dashboard-font [data-slot='sheet-content'] *:not(svg):not(path) {
 }
 
 .docs-code-body {
-  background: #1e1e2e;
+  background: #081412;
 }
 
 .docs-code .shiki {

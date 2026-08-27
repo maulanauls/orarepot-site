@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { Article } from '@/components/docs-shell';
 import { CodeBlock } from '@/components/docs-code';
 
-export const metadata: Metadata = { title: 'Webhooks' };
+export const metadata: Metadata = { title: 'WEBHOOKS' };
 
 export default function Page() {
   return (

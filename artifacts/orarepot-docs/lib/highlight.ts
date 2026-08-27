@@ -69,7 +69,7 @@ export async function highlightCode(code: string, lang: Lang): Promise<string> {
     return `<span class="line">${inner || ' '}</span>`;
   });
 
-  return `<pre class="shiki" style="background-color:#1e1e2e;color:${COLORS.text}"><code>${lines.join('\n')}</code></pre>`;
+  return `<pre class="shiki" style="background-color:#081412;color:${COLORS.text}"><code>${lines.join('\n')}</code></pre>`;
 }
 
 function tokenize(line: string, lang: Lang): Token[] {

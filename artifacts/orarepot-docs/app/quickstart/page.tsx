@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { Article, Cards } from '@/components/docs-shell';
 import { CodeTabs } from '@/components/docs-code';
 
-export const metadata: Metadata = { title: 'Quickstart' };
+export const metadata: Metadata = { title: 'QUICKSTART' };
 
 export default function Page() {
   return (

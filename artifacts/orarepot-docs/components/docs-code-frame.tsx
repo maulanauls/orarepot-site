@@ -22,8 +22,8 @@ export function DocsCodeFrame({ tabs }: { tabs: HighlightedTab[] }) {
   }
 
   return (
-    <div className="docs-code my-5 overflow-hidden rounded-xl border border-white/10 shadow-[0_12px_40px_-18px_rgba(15,23,42,0.55)]">
-      <div className="flex items-center gap-1 border-b border-white/10 bg-[#181825] px-2 min-h-11">
+    <div className="docs-code my-5 overflow-hidden rounded-xl border border-white/10 shadow-[0_16px_40px_-18px_rgba(0,0,0,0.55)]">
+      <div className="flex items-center gap-1 border-b border-white/10 bg-[#0c1a17] px-2 min-h-11">
         {tabs.map((tab, index) => (
           <button
             key={tab.label}
@@ -31,7 +31,7 @@ export function DocsCodeFrame({ tabs }: { tabs: HighlightedTab[] }) {
             onClick={() => setActive(index)}
             className={
               active === index
-                ? 'h-11 px-3 text-xs font-medium text-[#cba6f7] border-b-2 border-[#cba6f7]'
+                ? 'h-11 px-3 text-xs font-medium text-[#c6e800] border-b-2 border-[#c6e800]'
                 : 'h-11 px-3 text-xs font-medium text-zinc-400 hover:text-zinc-100'
             }
           >
