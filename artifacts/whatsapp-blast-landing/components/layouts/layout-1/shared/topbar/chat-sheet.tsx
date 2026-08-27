@@ -108,7 +108,7 @@ export function ChatSheet({ trigger }: { trigger: ReactNode }) {
                   {m.from === 'admin' ? (
                     <Avatar className="size-8 shrink-0">
                       <AvatarImage
-                        src={toAbsoluteUrl('/logo-orarepot-icon.png')}
+                        src={toAbsoluteUrl('/logo-orarepot-icon.svg')}
                         alt="Ora Repot"
                       />
                       <AvatarFallback>OR</AvatarFallback>

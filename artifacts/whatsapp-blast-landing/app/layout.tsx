@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     description: 'AI Assistant, WABA messaging, dan digital goods dalam satu platform.',
   },
   icons: {
-    icon: '/logo-orarepot-icon.png',
+    icon: '/logo-orarepot-icon.svg',
   },
 };
 

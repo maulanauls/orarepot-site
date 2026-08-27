@@ -250,7 +250,7 @@ export function OtpOverviewPage() {
                     ))}
                     <span className="size-10 rounded-full border-2 border-background bg-[#0f6b66] inline-flex items-center justify-center overflow-hidden">
                       <img
-                        src={toAbsoluteUrl('/logo-orarepot-icon.png')}
+                        src={toAbsoluteUrl('/logo-orarepot-icon.svg')}
                         alt=""
                         className="size-5 object-contain"
                       />

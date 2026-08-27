@@ -61,7 +61,7 @@ export function WebHeader() {
       <div className="container mx-auto px-6 py-4 flex items-center justify-between">
         <Link href="/" className="flex items-center shrink-0">
           <img
-            src="/logo-orarepot.png"
+            src="/logo-orarepot.svg"
             alt="Ora Repot"
             className="h-8 w-auto max-w-[168px] object-contain object-left"
           />

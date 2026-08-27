@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 124 124" fill="none" role="img" aria-label="Ora Repot R">
+  <!-- Closer to the original layered R: teal stem, lime bowl, dark join, lime foot -->
+  <g transform="translate(10 6)">
+    <!-- Stem -->
+    <path
+      fill="#1A8A86"
+      d="M18 18
+         C18 10 26 8 34 10
+         L58 18
+         C66 21 68 28 66 36
+         L50 102
+         C48 110 40 114 32 112
+         L14 106
+         C8 104 8 96 10 88
+         Z"
+    />
+    <!-- Dark overlap under the bowl -->
+    <path
+      fill="#0A4F4B"
+      d="M40 46
+         C52 40 62 44 66 54
+         C68 62 62 70 52 74
+         C44 77 36 74 32 66
+         C30 58 34 50 40 46Z"
+    />
+    <!-- Lime bowl -->
+    <path
+      fill="#C6E800"
+      d="M44 16
+         H70
+         C92 16 108 34 108 54
+         C108 74 94 88 74 88
+         H52
+         V70
+         H70
+         C80 70 88 64 88 54
+         C88 44 80 36 68 36
+         H44
+         Z"
+    />
+    <!-- Lime foot -->
+    <path
+      fill="#C6E800"
+      d="M56 86
+         L92 114
+         C96 117 94 122 88 122
+         L58 108
+         C52 105 50 98 54 92
+         Z"
+    />
+  </g>
+</svg>

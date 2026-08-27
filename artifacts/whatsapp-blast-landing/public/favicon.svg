@@ -1,3 +1,15 @@
-<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="180" height="180" rx="36" fill="#FF3C00"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 124 124" fill="none" role="img" aria-label="Ora Repot R">
+  <g transform="translate(8 4) skewX(-12)" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Lime loop + leg (behind) -->
+    <path
+      d="M54 32
+         C90 26 110 48 104 66
+         C99 82 76 86 54 82
+         L92 114"
+      stroke="#C6E800"
+      stroke-width="26"
+    />
+    <!-- Teal stem (in front) -->
+    <path d="M36 18v88" stroke="#0F6B66" stroke-width="32"/>
+  </g>
 </svg>

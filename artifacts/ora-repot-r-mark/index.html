@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ora Repot R mark</title>
+    <style>
+      :root {
+        --ink: #0c1413;
+        --lime: #c6e800;
+        --teal: #0f6b66;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        font-family: Poppins, Helvetica Neue, sans-serif;
+        color: #f7fbf8;
+        background:
+          radial-gradient(ellipse 60% 50% at 90% 0%, rgba(198, 232, 0, 0.12), transparent 55%),
+          radial-gradient(ellipse 50% 45% at 0% 100%, rgba(15, 107, 102, 0.45), transparent 58%),
+          #111;
+      }
+      main {
+        max-width: 920px;
+        margin: 0 auto;
+        padding: 48px 24px 80px;
+      }
+      h1 { font-size: 1.4rem; font-weight: 700; margin: 0 0 8px; }
+      p { margin: 0 0 32px; color: rgba(247, 251, 248, 0.65); }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 20px;
+      }
+      figure {
+        margin: 0;
+        padding: 20px;
+        border-radius: 20px;
+        background: rgba(8, 16, 14, 0.7);
+        border: 1px solid rgba(198, 232, 0, 0.14);
+      }
+      figcaption {
+        margin-top: 14px;
+        font-size: 0.85rem;
+        color: rgba(247, 251, 248, 0.7);
+      }
+      figcaption strong { color: var(--lime); display: block; margin-bottom: 4px; }
+      .preview {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      .swatch {
+        display: grid;
+        place-items: center;
+        height: 160px;
+        border-radius: 16px;
+      }
+      .swatch.dark { background: #1a1a1a; }
+      .swatch.light { background: #f3f8f6; }
+      img { width: 108px; height: 108px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Ora Repot — R mark only</h1>
+      <p>Chosen mark: <strong style="color:var(--lime)">r-mark.svg</strong>. Draft folder only — not plugged into the app.</p>
+      <figure style="margin:0 0 28px;padding:20px;border-radius:20px;background:rgba(8,16,14,.7);border:1px solid rgba(198,232,0,.14);max-width:420px">
+        <div class="preview">
+          <div class="swatch dark"><img src="./r-mark.svg" alt="Chosen R dark" /></div>
+          <div class="swatch light"><img src="./r-mark.svg" alt="Chosen R light" /></div>
+        </div>
+        <figcaption>
+          <strong>Chosen — r-mark.svg</strong>
+          Batang teal di depan, loop + kaki lime satu stroke rounded.
+        </figcaption>
+      </figure>
+      <p>Opsi lain:</p>
+      <div class="grid">
+        <figure>
+          <div class="preview">
+            <div class="swatch dark"><img src="./r-mark-a.svg" alt="R mark A dark" /></div>
+            <div class="swatch light"><img src="./r-mark-a.svg" alt="R mark A light" /></div>
+          </div>
+          <figcaption>
+            <strong>A — Clean</strong>
+            Batang teal + mangkuk/kaki lime. Paling sederhana, kebaca di ukuran kecil.
+          </figcaption>
+        </figure>
+        <figure>
+          <div class="preview">
+            <div class="swatch dark"><img src="./r-mark-b.svg" alt="R mark B dark" /></div>
+            <div class="swatch light"><img src="./r-mark-b.svg" alt="R mark B light" /></div>
+          </div>
+          <figcaption>
+            <strong>B — Layered</strong>
+            Dekat bentuk R lama: overlap gelap di tengah + kaki lime.
+          </figcaption>
+        </figure>
+        <figure>
+          <div class="preview">
+            <div class="swatch dark"><img src="./r-mark-c.svg" alt="R mark C dark" /></div>
+            <div class="swatch light"><img src="./r-mark-c.svg" alt="R mark C light" /></div>
+          </div>
+          <figcaption>
+            <strong>C — Interlock</strong>
+            Batang teal di depan, loop lime menyelip di belakang lalu nendang ke kanan.
+          </figcaption>
+        </figure>
+      </div>
+    </main>
+  </body>
+</html>

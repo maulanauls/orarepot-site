@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 124 124" fill="none" role="img" aria-label="Ora Repot R">
+  <g transform="translate(14 8) skewX(-11)">
+    <rect x="8" y="8" width="36" height="100" rx="18" fill="#0F6B66"/>
+    <path fill="#C6E800" d="M44 10h5A40 40 0 0 1 49 90H44V70h5a20 20 0 0 0 0-40H44V10z"/>
+    <path fill="#C6E800" d="M62 78 98 106a12 12 0 0 1-15 10.2L50 90A11 11 0 0 1 62 78z"/>
+  </g>
+</svg>

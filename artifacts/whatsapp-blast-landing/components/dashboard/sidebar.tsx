@@ -86,8 +86,8 @@ export function DashboardSidebar({
     <aside className="mt-sidebar">
       <div className="mt-sidebar-header">
         <Link href="/" className="mt-sidebar-logo">
-          <img src="/logo-orarepot.png" alt="Ora Repot" className="mt-logo-full" />
-          <img src="/logo-orarepot-icon.png" alt="" className="mt-logo-mini" />
+          <img src="/logo-orarepot.svg" alt="Ora Repot" className="mt-logo-full" />
+          <img src="/logo-orarepot-icon.svg" alt="" className="mt-logo-mini" />
         </Link>
       </div>
 

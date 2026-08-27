@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 124 124" fill="none" role="img" aria-label="Ora Repot R">
+  <!-- Interlocking ribbons: stem in front, lime loop tucked behind then kicking out -->
+  <g transform="translate(8 6) rotate(-8 58 62)">
+    <path
+      fill="#C6E800"
+      d="M48 14
+         C78 14 102 34 102 58
+         C102 78 88 92 70 96
+         L98 118
+         C102 121 100 126 94 126
+         H84
+         L54 98
+         H48
+         C48 98 48 86 48 86
+         C70 84 82 74 82 58
+         C82 42 70 32 48 32
+         Z"
+    />
+    <rect x="22" y="12" width="34" height="100" rx="17" fill="#0F6B66"/>
+    <path
+      fill="#0A4F4B"
+      d="M44 48c8-2 14 2 16 8 2 7-2 14-10 16-7 2-14-1-16-8-2-6 2-14 10-16z"
+    />
+  </g>
+</svg>

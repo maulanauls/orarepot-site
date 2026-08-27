@@ -21,24 +21,24 @@ export function SidebarHeader() {
       <Link href={homeHref}>
         <div className="dark:hidden">
           <img
-            src={toAbsoluteUrl('/logo-orarepot.png')}
+            src={toAbsoluteUrl('/logo-orarepot.svg')}
             className="default-logo h-[22px] max-w-none"
             alt="Ora Repot"
           />
           <img
-            src={toAbsoluteUrl('/logo-orarepot-icon.png')}
+            src={toAbsoluteUrl('/logo-orarepot-icon.svg')}
             className="small-logo h-[22px] max-w-none"
             alt="Ora Repot"
           />
         </div>
         <div className="hidden dark:block">
           <img
-            src={toAbsoluteUrl('/logo-orarepot.png')}
+            src={toAbsoluteUrl('/logo-orarepot.svg')}
             className="default-logo h-[22px] max-w-none"
             alt="Ora Repot"
           />
           <img
-            src={toAbsoluteUrl('/logo-orarepot-icon.png')}
+            src={toAbsoluteUrl('/logo-orarepot-icon.svg')}
             className="small-logo h-[22px] max-w-none"
             alt="Ora Repot"
           />
