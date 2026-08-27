@@ -48,7 +48,7 @@ export function DemoPage() {
           </Link>
 
           <div className="demo-login-wrap">
-            <img src="/logo-orarepot.svg" alt="Ora Repot" className="auth-logo" />
+            <img src="/logo-orarepot.png" alt="Ora Repot" className="auth-logo" />
 
             <div className="demo-service-tabs" role="tablist" aria-label="Layanan demo">
               <button

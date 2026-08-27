@@ -123,7 +123,7 @@ export function CheckoutPage({ sessionId }: { sessionId: string }) {
         <aside className="reg-flow-aside">
           <div className="flex items-center justify-between gap-3 mb-2">
             <Link href="/dashboard/billing" className="reg-flow-logo">
-              <img src="/logo-orarepot.svg" alt="Ora Repot" />
+              <img src="/logo-orarepot.png" alt="Ora Repot" />
             </Link>
             <LanguageSwitcher compact className="lang-switch-nav" />
           </div>

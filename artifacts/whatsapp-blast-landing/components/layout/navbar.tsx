@@ -63,7 +63,7 @@ export function Navbar() {
       <header className={cn('topbar', (scrolled || openMenu) && 'is-scrolled')}>
         <div className="container topbar-inner">
           <Link href="/" className="brand" data-testid="link-brand">
-            <img src="/logo-orarepot.svg" alt="Ora Repot" className="brand-logo" />
+            <img src="/logo-orarepot.png" alt="Ora Repot" className="brand-logo" />
           </Link>
 
           <nav className="nav-links" aria-label={t('nav.mainNav')}>

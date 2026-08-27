@@ -53,7 +53,7 @@ export function RegisterFlow() {
         <aside className="reg-flow-aside">
           <div className="flex items-center justify-between gap-3 mb-4">
             <Link href="/" className="reg-flow-logo">
-              <img src="/logo-orarepot.svg" alt="Ora Repot" />
+              <img src="/logo-orarepot.png" alt="Ora Repot" />
             </Link>
             <LanguageSwitcher compact />
           </div>

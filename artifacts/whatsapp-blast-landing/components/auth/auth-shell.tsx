@@ -37,7 +37,7 @@ export function AuthShell({ mode }: { mode: Mode }) {
         </Link>
         <div className="auth-form-wrap">
           <div className="flex items-center justify-between gap-3 mb-4">
-            <img src="/logo-orarepot.svg" alt="Ora Repot" className="auth-logo !mb-0" />
+            <img src="/logo-orarepot.png" alt="Ora Repot" className="auth-logo !mb-0" />
             <LanguageSwitcher compact />
           </div>
           <h1>{title}</h1>

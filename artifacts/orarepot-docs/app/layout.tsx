@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   },
   description: 'OTP WhatsApp API — api.orarepot.com',
   icons: {
-    icon: '/logo-orarepot-icon.svg',
+    icon: '/logo-orarepot-icon.png',
   },
 };
 

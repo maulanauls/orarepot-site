@@ -6,7 +6,7 @@ export function PageLoader() {
       <div className="page-loader-inner">
         <span className="page-loader-ring" />
         <img
-          src="/logo-orarepot-icon.svg"
+          src="/logo-orarepot-icon.png"
           alt=""
           className="page-loader-logo"
         />

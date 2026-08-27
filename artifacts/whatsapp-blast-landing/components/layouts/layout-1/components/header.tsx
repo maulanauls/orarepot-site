@@ -57,7 +57,7 @@ export function Header() {
         <div className="flex lg:hidden items-center gap-2.5">
           <Link href={homeHref} className="shrink-0">
             <img
-              src={toAbsoluteUrl('/logo-orarepot-icon.svg')}
+              src={toAbsoluteUrl('/logo-orarepot-icon.png')}
               className="h-[25px] w-auto"
               alt="Ora Repot"
             />
