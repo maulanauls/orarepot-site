@@ -24,6 +24,7 @@ import {
   type AccountAppearance,
   type AccountProfile,
   type SettingsTab,
+} from '@/lib/account-settings';
 import { getStoredUser, persistSession, getToken, clearSession } from '@/lib/session';
 import { patchMe } from '@/lib/orarepot-api';
 
