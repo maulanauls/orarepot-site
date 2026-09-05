@@ -1,0 +1,66 @@
+server:
+  port: 8080
+
+orarepot:
+  jwt-secret: ${JWT_SECRET:change-me-in-production-orarepot-jwt}
+
+spring:
+  application:
+    name: orarepot-gateway
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      password: ${SPRING_DATA_REDIS_PASSWORD:}
+  cloud:
+    gateway:
+      server:
+        webflux:
+          default-filters:
+            - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials
+          globalcors:
+            cors-configurations:
+              '[/**]':
+                allowedOriginPatterns: "*"
+                allowedMethods: "*"
+                allowedHeaders: "*"
+                allowCredentials: true
+          routes:
+            - id: identity
+              uri: ${IDENTITY_URI:http://localhost:8101}
+              predicates:
+                - Path=/auth/**
+            - id: members
+              uri: ${MEMBERS_URI:http://localhost:8201}
+              predicates:
+                - Path=/members/**,/teams/**
+            - id: merchant
+              uri: ${MERCHANT_URI:http://localhost:8202}
+              predicates:
+                - Path=/merchant/**
+            - id: billing
+              uri: ${BILLING_URI:http://localhost:8102}
+              predicates:
+                - Path=/billing/**
+            - id: templates
+              uri: ${TEMPLATES_URI:http://localhost:8203}
+              predicates:
+                - Path=/templates/**
+            - id: otp
+              uri: ${OTP_URI:http://localhost:8103}
+              predicates:
+                - Path=/otp/**
+            - id: developer
+              uri: ${DEVELOPER_URI:http://localhost:8204}
+              predicates:
+                - Path=/developer/**,/v1/**
+            - id: reporting
+              uri: ${REPORTING_URI:http://localhost:8205}
+              predicates:
+                - Path=/reports/**
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

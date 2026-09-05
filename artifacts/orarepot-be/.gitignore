@@ -1,0 +1,12 @@
+target/
+**/target/
+node_modules/
+dist/
+.idea/
+*.iml
+.DS_Store
+.env
+infra/.env
+infra/kafka/*.key
+infra/kafka/*.p12
+infra/kafka/*jaas*

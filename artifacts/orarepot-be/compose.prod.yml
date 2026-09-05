@@ -1,0 +1,190 @@
+name: orarepot-be
+
+# Production: images from Docker Hub. Postgres/Redis/Kafka sudah di VPS.
+# Redis + Kafka di app-network; Postgres tetap 84.247.149.27:5433.
+
+x-app-env: &app-env
+  JWT_SECRET: ${JWT_SECRET}
+  INTERNAL_KEY: ${INTERNAL_KEY}
+
+services:
+  identity:
+    image: ${DOCKER_HUB_USER}/orarepot-identity:${IMAGE_TAG}
+    container_name: orarepot-identity
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      <<: *app-env
+      DATABASE_URL: ${DATABASE_URL_IDENTITY}
+      BIND: 0.0.0.0:8101
+      RUST_LOG: info
+    ports: ["8101:8101"]
+    networks: [app-network]
+
+  billing:
+    image: ${DOCKER_HUB_USER}/orarepot-billing:${IMAGE_TAG}
+    container_name: orarepot-billing
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      <<: *app-env
+      DATABASE_URL: ${DATABASE_URL_BILLING}
+      BIND: 0.0.0.0:8102
+      RUST_LOG: info
+    ports: ["8102:8102"]
+    networks: [app-network]
+
+  otp:
+    image: ${DOCKER_HUB_USER}/orarepot-otp:${IMAGE_TAG}
+    container_name: orarepot-otp
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      <<: *app-env
+      DATABASE_URL: ${DATABASE_URL_OTP}
+      TEMPLATES_URL: http://orarepot-templates:8203
+      BILLING_URL: http://orarepot-billing:8102
+      WHATSAPP_STUB: ${WHATSAPP_STUB:-false}
+      META_GRAPH_VERSION: ${META_GRAPH_VERSION:-v26.0}
+      META_PHONE_NUMBER_ID: ${META_PHONE_NUMBER_ID:-1241209412413230}
+      META_OTP_TEMPLATE_EN: ${META_OTP_TEMPLATE_EN:-otp_merchant}
+      META_OTP_TEMPLATE_EN_LANG: ${META_OTP_TEMPLATE_EN_LANG:-en}
+      META_OTP_TEMPLATE_ID: ${META_OTP_TEMPLATE_ID:-otp_merchant_id}
+      META_OTP_TEMPLATE_ID_LANG: ${META_OTP_TEMPLATE_ID_LANG:-id}
+      META_WA_TOKEN: ${META_WA_TOKEN}
+      BIND: 0.0.0.0:8103
+      RUST_LOG: info
+    ports: ["8103:8103"]
+    depends_on:
+      billing:
+        condition: service_started
+      templates:
+        condition: service_started
+    networks: [app-network]
+
+  members:
+    image: ${DOCKER_HUB_USER}/orarepot-node:${IMAGE_TAG}
+    container_name: orarepot-members
+    restart: unless-stopped
+    command: ["node", "dist/members/main.js"]
+    env_file: .env
+    environment:
+      <<: *app-env
+      SERVICE_NAME: orarepot-members
+      DATABASE_URL: ${DATABASE_URL_MEMBERS}
+      PORT: 8201
+    ports: ["8201:8201"]
+    networks: [app-network]
+
+  merchant:
+    image: ${DOCKER_HUB_USER}/orarepot-node:${IMAGE_TAG}
+    container_name: orarepot-merchant
+    restart: unless-stopped
+    command: ["node", "dist/merchant/main.js"]
+    env_file: .env
+    environment:
+      <<: *app-env
+      SERVICE_NAME: orarepot-merchant
+      DATABASE_URL: ${DATABASE_URL_MERCHANT}
+      PORT: 8202
+    ports: ["8202:8202"]
+    networks: [app-network]
+
+  templates:
+    image: ${DOCKER_HUB_USER}/orarepot-node:${IMAGE_TAG}
+    container_name: orarepot-templates
+    restart: unless-stopped
+    command: ["node", "dist/templates/main.js"]
+    env_file: .env
+    environment:
+      <<: *app-env
+      SERVICE_NAME: orarepot-templates
+      DATABASE_URL: ${DATABASE_URL_TEMPLATES}
+      PORT: 8203
+    ports: ["8203:8203"]
+    networks: [app-network]
+
+  developer:
+    image: ${DOCKER_HUB_USER}/orarepot-node:${IMAGE_TAG}
+    container_name: orarepot-developer
+    restart: unless-stopped
+    command: ["node", "dist/developer/main.js"]
+    env_file: .env
+    environment:
+      <<: *app-env
+      SERVICE_NAME: orarepot-developer
+      DATABASE_URL: ${DATABASE_URL_DEVELOPER}
+      OTP_URL: http://orarepot-otp:8103
+      KAFKA_BROKERS: ${KAFKA_BROKERS}
+      KAFKA_USERNAME: ${KAFKA_USERNAME:-}
+      KAFKA_PASSWORD: ${KAFKA_PASSWORD:-}
+      KAFKA_SASL_MECHANISM: ${KAFKA_SASL_MECHANISM:-plain}
+      KAFKA_SSL: ${KAFKA_SSL:-false}
+      PORT: 8204
+    ports: ["8204:8204"]
+    networks: [app-network]
+
+  reporting:
+    image: ${DOCKER_HUB_USER}/orarepot-node:${IMAGE_TAG}
+    container_name: orarepot-reporting
+    restart: unless-stopped
+    command: ["node", "dist/reporting/main.js"]
+    env_file: .env
+    environment:
+      <<: *app-env
+      SERVICE_NAME: orarepot-reporting
+      DATABASE_URL: ${DATABASE_URL_WAREHOUSE}
+      KAFKA_BROKERS: ${KAFKA_BROKERS}
+      KAFKA_USERNAME: ${KAFKA_USERNAME:-}
+      KAFKA_PASSWORD: ${KAFKA_PASSWORD:-}
+      KAFKA_SASL_MECHANISM: ${KAFKA_SASL_MECHANISM:-plain}
+      KAFKA_SSL: ${KAFKA_SSL:-false}
+      PORT: 8205
+    ports: ["8205:8205"]
+    networks: [app-network]
+
+  relay:
+    image: ${DOCKER_HUB_USER}/orarepot-node:${IMAGE_TAG}
+    container_name: orarepot-relay
+    restart: unless-stopped
+    command: ["node", "dist/relay/main.js"]
+    env_file: .env
+    environment:
+      PGHOST: ${POSTGRES_HOST}
+      PGPORT: ${POSTGRES_PORT}
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      KAFKA_BROKERS: ${KAFKA_BROKERS}
+      KAFKA_USERNAME: ${KAFKA_USERNAME:-}
+      KAFKA_PASSWORD: ${KAFKA_PASSWORD:-}
+      KAFKA_SASL_MECHANISM: ${KAFKA_SASL_MECHANISM:-plain}
+      KAFKA_SSL: ${KAFKA_SSL:-false}
+    networks: [app-network]
+
+  gateway:
+    image: ${DOCKER_HUB_USER}/orarepot-gateway:${IMAGE_TAG}
+    container_name: orarepot-gateway
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+      SPRING_DATA_REDIS_HOST: ${REDIS_HOST}
+      SPRING_DATA_REDIS_PORT: ${REDIS_PORT}
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD}
+      IDENTITY_URI: http://orarepot-identity:8101
+      MEMBERS_URI: http://orarepot-members:8201
+      MERCHANT_URI: http://orarepot-merchant:8202
+      BILLING_URI: http://orarepot-billing:8102
+      TEMPLATES_URI: http://orarepot-templates:8203
+      OTP_URI: http://orarepot-otp:8103
+      DEVELOPER_URI: http://orarepot-developer:8204
+      REPORTING_URI: http://orarepot-reporting:8205
+    ports: ["8080:8080"]
+    depends_on:
+      identity:
+        condition: service_started
+    networks: [app-network]
+
+networks:
+  app-network:
+    external: true
