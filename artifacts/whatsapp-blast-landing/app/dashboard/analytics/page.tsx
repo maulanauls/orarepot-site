@@ -1,5 +1,5 @@
-import { EmptyPage } from '@/components/dashboard/empty-page';
+import { AnalyticsPage } from '@/components/dashboard/analytics-page';
 
 export default function Page() {
-  return <EmptyPage />;
+  return <AnalyticsPage />;
 }

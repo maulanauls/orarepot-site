@@ -11,7 +11,6 @@ import {
   Settings,
   Settings2,
   ShieldCheck,
-  Smartphone,
   Users,
 } from 'lucide-react';
 import { MenuConfig } from '@/config/types';
@@ -22,11 +21,6 @@ export const MENU_SIDEBAR: MenuConfig = [
     title: 'Overview',
     icon: LayoutDashboard,
     path: '/dashboard',
-  },
-  {
-    title: 'WhatsApp',
-    icon: Smartphone,
-    path: '/dashboard/whatsapp',
   },
   {
     title: 'AI Assistant',

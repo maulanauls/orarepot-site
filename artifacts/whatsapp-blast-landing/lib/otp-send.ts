@@ -11,6 +11,12 @@ export function generateOtpCode() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
+export function normalizeOtpCode(raw: string): string | null {
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length < 4 || digits.length > 8) return null;
+  return digits;
+}
+
 export function normalizePhone(raw: string): string | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;

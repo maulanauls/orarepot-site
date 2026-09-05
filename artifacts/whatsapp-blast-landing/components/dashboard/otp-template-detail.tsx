@@ -11,7 +11,6 @@ import {
   Copy,
   Info,
   MoreVertical,
-  Pencil,
   Star,
   X,
 } from 'lucide-react';
@@ -25,41 +24,24 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   CATEGORY_LABEL,
   formatDateId,
   formatIdr,
-  getTemplateById,
   renderBodySample,
-  updateTemplate,
   type OtpTemplate,
   type OtpTemplateMetricPoint,
 } from '@/lib/otp-templates';
+import { ensurePlatformTemplates, fetchOtpSends } from '@/lib/orarepot-api';
+import {
+  enrichTemplates,
+  periodDeltaPct,
+  previousRowsInRange,
+  rowsInRange,
+  sentCount,
+} from '@/lib/otp-dashboard';
 import { cn } from '@/lib/utils';
-
-const EDIT_LANGUAGES = [
-  { value: 'Indonesian', code: 'id' },
-  { value: 'English (US)', code: 'en_US' },
-] as const;
 
 function statusBadge(t: OtpTemplate) {
   if (t.status === 'REJECTED') {
@@ -186,19 +168,35 @@ export function OtpTemplateDetailPage({ id }: { id: string }) {
   );
   const [copied, setCopied] = useState(false);
   const [bannerOpen, setBannerOpen] = useState(true);
-  const [editOpen, setEditOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [formName, setFormName] = useState('');
-  const [formLang, setFormLang] = useState('Indonesian');
-  const [formBody, setFormBody] = useState('');
-  const [formButton, setFormButton] = useState('');
+
+  const [deltaDelivered, setDeltaDelivered] = useState<number | undefined>();
+  const [deltaSent, setDeltaSent] = useState<number | undefined>();
 
   useEffect(() => {
-    const found = getTemplateById(id);
-    setTemplate(found ?? null);
-    if (!found) {
-      router.replace('/dashboard/otp/templates');
-    }
+    Promise.all([ensurePlatformTemplates(), fetchOtpSends()])
+      .then(([list, sends]) => {
+        const enriched = enrichTemplates(list, sends);
+        const found = enriched.find((item) => item.id === id);
+        setTemplate(found ?? null);
+        if (!found) {
+          router.replace('/dashboard/otp/templates');
+          return;
+        }
+        const mine = sends.filter((row) => row.template_id === found.id);
+        setDeltaSent(
+          periodDeltaPct(
+            rowsInRange(mine, '7d').length,
+            previousRowsInRange(mine, '7d').length,
+          ) ?? undefined,
+        );
+        setDeltaDelivered(
+          periodDeltaPct(
+            sentCount(rowsInRange(mine, '7d')),
+            sentCount(previousRowsInRange(mine, '7d')),
+          ) ?? undefined,
+        );
+      })
+      .catch(() => router.replace('/dashboard/otp/templates'));
   }, [id, router]);
 
   const sampleBody = useMemo(
@@ -206,9 +204,7 @@ export function OtpTemplateDetailPage({ id }: { id: string }) {
     [template],
   );
 
-  const deltaDelivered = -15.6;
-  const deltaSent = -18.3;
-  const deltaRead = -7.6;
+  const deltaRead = deltaDelivered;
 
   if (template === undefined) {
     return (
@@ -227,23 +223,6 @@ export function OtpTemplateDetailPage({ id }: { id: string }) {
   const current = template;
   const readPct = Math.round(current.readRate * 100);
 
-  function onSaveEdit() {
-    if (!formName.trim() || !formBody.trim()) return;
-    setSaving(true);
-    const lang =
-      EDIT_LANGUAGES.find((l) => l.value === formLang) ?? EDIT_LANGUAGES[0];
-    const next = updateTemplate(current.id, {
-      name: formName,
-      language: lang.value,
-      languageCode: lang.code,
-      body: formBody,
-      buttonLabel: formButton.trim() || undefined,
-    });
-    if (next) setTemplate(next);
-    setSaving(false);
-    setEditOpen(false);
-  }
-
   return (
     <>
     <DashboardShell
@@ -256,21 +235,8 @@ export function OtpTemplateDetailPage({ id }: { id: string }) {
               <ArrowLeft /> {t('otp.back')}
             </Link>
           </Button>
-          <span className="text-xs text-muted-foreground hidden md:inline px-2 py-1.5 rounded-md border border-border bg-card">
-            15 Agu 2026 – 22 Agu 2026
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setFormName(template.name);
-              setFormLang(template.language);
-              setFormBody(template.body);
-              setFormButton(template.buttonLabel ?? '');
-              setEditOpen(true);
-            }}
-          >
-            <Pencil /> {t('otp.editTemplate')}
+          <Button variant="outline" size="sm" disabled title={t('otp.createDisabled')}>
+            {t('otp.editTemplate')}
           </Button>
           <Button variant="outline" mode="icon" size="sm" disabled>
             <MoreVertical />
@@ -308,9 +274,7 @@ export function OtpTemplateDetailPage({ id }: { id: string }) {
           <div className="flex items-start gap-3 rounded-xl border border-violet-200 bg-violet-50/80 dark:bg-violet-950/30 dark:border-violet-800 px-4 py-3">
             <Star className="size-4 text-violet-600 mt-0.5 shrink-0" />
             <p className="text-sm text-foreground m-0 flex-1">
-              Setelah API integrasi aktif, metrik pengiriman & biaya di sini
-              dihitung otomatis dari data Meta Cloud API.{' '}
-              <span className="text-primary font-medium">Pelajari lebih lanjut</span>
+              {t('otp.lockedBanner')}
             </p>
             <button
               type="button"
@@ -446,7 +410,7 @@ export function OtpTemplateDetailPage({ id }: { id: string }) {
 
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs text-muted-foreground">
-                        4 metrik dipilih (mock)
+                        {t('otp.metricsSelected')}
                       </span>
                       <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
                         <span className="inline-flex items-center gap-1">
@@ -478,80 +442,9 @@ export function OtpTemplateDetailPage({ id }: { id: string }) {
         </div>
       </div>
     </DashboardShell>
-
-    <Dialog open={editOpen} onOpenChange={setEditOpen}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{t('otp.editTitle')}</DialogTitle>
-          <DialogDescription>{t('otp.editDesc')}</DialogDescription>
-        </DialogHeader>
-        <DialogBody className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="edit-tpl-name">{t('otp.templateName')}</Label>
-            <Input
-              id="edit-tpl-name"
-              value={formName}
-              onChange={(e) => setFormName(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>{t('common.language')}</Label>
-            <Select value={formLang} onValueChange={setFormLang}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {EDIT_LANGUAGES.map((l) => (
-                  <SelectItem key={l.value} value={l.value}>
-                    {l.value}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="edit-tpl-body">{t('otp.messageBody')}</Label>
-            <textarea
-              id="edit-tpl-body"
-              className="flex min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30 focus-visible:border-ring"
-              value={formBody}
-              onChange={(e) => setFormBody(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground m-0">
-              {t('otp.otpVarHint')}
-            </p>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="edit-tpl-btn">{t('otp.buttonLabel')}</Label>
-            <input
-              id="edit-tpl-btn"
-              type="text"
-              autoComplete="off"
-              value={formButton}
-              onChange={(e) => setFormButton(e.target.value)}
-              onPointerDown={(e) => e.stopPropagation()}
-              placeholder={t('otp.copyCode')}
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30 focus-visible:border-ring"
-            />
-          </div>
-        </DialogBody>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setEditOpen(false)}>
-            {t('common.cancel')}
-          </Button>
-          <Button
-            onClick={onSaveEdit}
-            disabled={saving || !formName.trim() || !formBody.trim()}
-          >
-            {saving ? t('otp.saving') : t('otp.saveChanges')}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
     </>
   );
 }
-
 function KpiCard({ label, value }: { label: string; value: string }) {
   return (
     <Card>

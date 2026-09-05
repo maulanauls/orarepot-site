@@ -23,9 +23,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { formatIdr as formatBillingIdr, remainingBalance, remainingUnits, getAccount } from '@/lib/billing';
-import { OTP_COST_PER_MESSAGE, getAllTemplates, renderBodySample, type OtpTemplate } from '@/lib/otp-templates';
-import { canAffordOtp, parsePhoneNumbers, sendOtpBatch } from '@/lib/otp-send';
+import { formatIdr as formatBillingIdr } from '@/lib/billing';
+import { OTP_COST_PER_MESSAGE, renderBodySample, type OtpTemplate } from '@/lib/otp-templates';
+import { parsePhoneNumbers, generateOtpCode, normalizeOtpCode } from '@/lib/otp-send';
+import { ensurePlatformTemplates, fetchWalletRemaining, sendOtp } from '@/lib/orarepot-api';
 import { cn } from '@/lib/utils';
 
 type SendMode = 'single' | 'bulk';
@@ -43,6 +44,7 @@ export function OtpSendPage() {
   const [templateId, setTemplateId] = useState('');
   const [singlePhone, setSinglePhone] = useState('');
   const [bulkPhones, setBulkPhones] = useState('');
+  const [otpCode, setOtpCode] = useState(() => generateOtpCode());
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const [doneCount, setDoneCount] = useState(0);
@@ -55,22 +57,28 @@ export function OtpSendPage() {
   );
 
   useEffect(() => {
-    const list = getAllTemplates();
-    setTemplates(list);
-    const firstActive = list.find((item) => item.status === 'ACTIVE');
-    if (firstActive) setTemplateId(firstActive.id);
-    const account = getAccount();
-    setBalance(remainingBalance(account));
-    setOtpLeft(remainingUnits(account, 'otp'));
+    ensurePlatformTemplates()
+      .then((list) => {
+        setTemplates(list);
+        const firstActive = list.find((item) => item.status === 'ACTIVE');
+        if (firstActive) setTemplateId(firstActive.id);
+      })
+      .catch(() => setTemplates([]));
+    fetchWalletRemaining().then((left) => {
+      setBalance(left);
+      setOtpLeft(Math.floor(left / OTP_COST_PER_MESSAGE));
+    });
   }, []);
 
   const template = activeTemplates.find((item) => item.id === templateId);
   const raw = mode === 'single' ? singlePhone : bulkPhones;
   const parsed = useMemo(() => parsePhoneNumbers(raw), [raw]);
   const cost = parsed.valid.length * OTP_COST_PER_MESSAGE;
-  const sampleBody = template ? renderBodySample(template.body) : '';
+  const code = normalizeOtpCode(otpCode);
+  const previewCode = code || otpCode.replace(/\D/g, '') || '123456';
+  const sampleBody = template ? renderBodySample(template.body, previewCode) : '';
 
-  function onSend() {
+  async function onSend() {
     setError('');
     setDoneCount(0);
     if (!template) {
@@ -81,21 +89,36 @@ export function OtpSendPage() {
       setError(t('otp.sendNeedPhone'));
       return;
     }
-    if (!canAffordOtp(parsed.valid.length)) {
+    if (!code) {
+      setError(t('otp.sendNeedCode'));
+      return;
+    }
+    if (balance < parsed.valid.length * OTP_COST_PER_MESSAGE) {
       setError(t('otp.sendNoBalance'));
       return;
     }
     setSending(true);
-    window.setTimeout(() => {
-      sendOtpBatch({ phones: parsed.valid, template });
-      const account = getAccount();
-      setBalance(remainingBalance(account));
-      setOtpLeft(remainingUnits(account, 'otp'));
-      setDoneCount(parsed.valid.length);
+    try {
+      let ok = 0;
+      for (const phone of parsed.valid) {
+        const row = await sendOtp({
+          templateId: template.id,
+          phoneE164: phone,
+          code,
+        });
+        if (row.status === 'success') ok += 1;
+      }
+      const left = await fetchWalletRemaining();
+      setBalance(left);
+      setOtpLeft(Math.floor(left / OTP_COST_PER_MESSAGE));
+      setDoneCount(ok);
       if (mode === 'single') setSinglePhone('');
       else setBulkPhones('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('otp.sendNeedTemplate'));
+    } finally {
       setSending(false);
-    }, 450);
+    }
   }
 
   return (
@@ -164,7 +187,7 @@ export function OtpSendPage() {
                   <SelectContent>
                     {activeTemplates.map((item) => (
                       <SelectItem key={item.id} value={item.id}>
-                        {item.name} · {t(categoryKey(item.category))}
+                        {item.name} · {item.language}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -196,6 +219,28 @@ export function OtpSendPage() {
                 />
               </div>
             )}
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <Label htmlFor="otp-code">{t('otp.sendCode')}</Label>
+                <button
+                  type="button"
+                  className="text-xs text-primary hover:underline"
+                  onClick={() => setOtpCode(generateOtpCode())}
+                >
+                  {t('otp.sendRandomCode')}
+                </button>
+              </div>
+              <Input
+                id="otp-code"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={8}
+                placeholder={t('otp.sendCodePlaceholder')}
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
+              />
+            </div>
 
             {parsed.valid.length > 0 ? (
               <p className="text-xs text-muted-foreground m-0">

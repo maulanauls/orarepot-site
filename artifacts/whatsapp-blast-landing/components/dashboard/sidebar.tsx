@@ -14,7 +14,6 @@ import {
   Radio,
   Settings,
   ShieldCheck,
-  Smartphone,
   Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -34,7 +33,6 @@ const userNav: NavGroup[] = [
   {
     items: [
       { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
-      { href: '/dashboard/whatsapp', label: 'WhatsApp', icon: Smartphone },
       { href: '/dashboard/ai', label: 'AI Assistant', icon: Bot },
       { href: '/dashboard/broadcast', label: 'Broadcast', icon: Radio },
       { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
@@ -86,8 +84,8 @@ export function DashboardSidebar({
     <aside className="mt-sidebar">
       <div className="mt-sidebar-header">
         <Link href="/" className="mt-sidebar-logo">
-          <img src="/logo-orarepot.png" alt="Ora Repot" className="mt-logo-full" />
-          <img src="/logo-orarepot-icon.png" alt="" className="mt-logo-mini" />
+          <img src="/logo-orarepot.svg" alt="Ora Repot" className="mt-logo-full" />
+          <img src="/logo-orarepot-icon.svg" alt="" className="mt-logo-mini" />
         </Link>
       </div>
 

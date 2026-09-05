@@ -1,5 +1,5 @@
-import { EmptyPage } from '@/components/dashboard/empty-page';
+import { redirect } from 'next/navigation';
 
 export default function Page() {
-  return <EmptyPage />;
+  redirect('/dashboard');
 }

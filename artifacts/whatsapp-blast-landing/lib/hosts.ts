@@ -1,6 +1,8 @@
 /** Public hosts for dashboard copy and docs links. */
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://api.orarepot.com';
+  process.env.NODE_ENV === 'development'
+    ? '/api/backend'
+    : (process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://api.orarepot.com');
 
 /** Same-origin Metronic docs. Override with NEXT_PUBLIC_DOCS_BASE_URL for docs.orarepot.com. */
 export const DOCS_BASE_URL =

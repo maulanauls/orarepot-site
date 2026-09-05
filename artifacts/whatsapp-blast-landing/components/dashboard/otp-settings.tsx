@@ -33,21 +33,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DOCS_BASE_URL, OTP_SEND_URL } from '@/lib/hosts';
 import {
   OTP_WEBHOOK_EVENTS,
-  createApiKey,
-  getApiKeys,
-  getApiRequestLogs,
-  getWebhook,
-  getWebhookDeliveries,
   maskSecret,
-  revokeApiKey,
-  saveWebhook,
-  testWebhook,
   type OtpApiKey,
   type OtpApiRequestLog,
   type OtpWebhook,
   type OtpWebhookDelivery,
   type OtpWebhookEvent,
 } from '@/lib/otp-developer';
+import {
+  createApiKeyApi,
+  fetchApiKeys,
+  fetchWebhook,
+  revokeApiKeyApi,
+  saveWebhookApi,
+} from '@/lib/orarepot-api';
 
 type Tab = 'summary' | 'keys' | 'webhook' | 'deliveries' | 'requests';
 
@@ -75,19 +74,29 @@ export function OtpSettingsPage() {
   const [whEnabled, setWhEnabled] = useState(true);
   const [whEvents, setWhEvents] = useState<OtpWebhookEvent[]>(['otp.sent', 'otp.failed']);
   const [savedNote, setSavedNote] = useState('');
+  const [keysError, setKeysError] = useState('');
 
-  function reload() {
-    const nextKeys = getApiKeys();
-    const nextWebhook = getWebhook();
-    setKeys(nextKeys);
-    setWebhook(nextWebhook);
-    setDeliveries(getWebhookDeliveries());
-    setRequests(getApiRequestLogs());
-    if (nextWebhook) {
-      setWhUrl(nextWebhook.url);
-      setWhEnabled(nextWebhook.enabled);
-      setWhEvents(nextWebhook.events);
+  async function reload() {
+    try {
+      const nextKeys = await fetchApiKeys();
+      setKeys(nextKeys);
+      setKeysError('');
+    } catch (err) {
+      setKeysError(err instanceof Error ? err.message : 'Gagal memuat API key');
     }
+    try {
+      const nextWebhook = await fetchWebhook();
+      setWebhook(nextWebhook);
+      if (nextWebhook) {
+        setWhUrl(nextWebhook.url);
+        setWhEnabled(nextWebhook.enabled);
+        setWhEvents(nextWebhook.events);
+      }
+    } catch {
+      /* webhook is optional for the keys tab */
+    }
+    setDeliveries([]);
+    setRequests([]);
   }
 
   useEffect(() => {
@@ -100,29 +109,31 @@ export function OtpSettingsPage() {
     window.setTimeout(() => setCopied(''), 1200);
   }
 
-  function onCreateKey() {
-    const created = createApiKey(keyName);
+  async function onCreateKey() {
+    const created = await createApiKeyApi(keyName);
     setFreshSecret(created.secret);
     setKeyName('Production');
-    reload();
+    setKeys((current) => [created.key, ...current.filter((item) => item.id !== created.key.id)]);
+    setKeysError('');
+    await reload();
   }
 
-  function onSaveWebhook(rotate = false) {
-    const next = saveWebhook({
-      url: whUrl,
+  async function onSaveWebhook(rotate = false) {
+    const saved = await saveWebhookApi(whUrl, whEnabled);
+    setWebhook({
+      id: saved.id,
+      url: saved.url,
+      secret: saved.secret ?? '',
       events: whEvents,
-      enabled: whEnabled,
-      rotateSecret: rotate,
+      enabled: saved.enabled,
+      updatedAt: new Date().toISOString(),
     });
-    setWebhook(next);
     setSavedNote(t('otp.devSaved'));
     window.setTimeout(() => setSavedNote(''), 1600);
-    reload();
+    await reload();
   }
 
   function onTestWebhook() {
-    testWebhook();
-    reload();
     setTab('deliveries');
   }
 
@@ -209,7 +220,9 @@ export function OtpSettingsPage() {
               </Button>
             </CardHeader>
             <CardContent className="space-y-3">
-              {keys.length === 0 ? (
+              {keysError ? (
+                <p className="text-sm text-destructive m-0">{keysError}</p>
+              ) : keys.length === 0 ? (
                 <p className="text-sm text-muted-foreground m-0">{t('otp.devNoKeys')}</p>
               ) : (
                 keys.map((item) => (
@@ -239,8 +252,7 @@ export function OtpSettingsPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            revokeApiKey(item.id);
-                            reload();
+                            void revokeApiKeyApi(item.id).then(() => reload());
                           }}
                         >
                           {t('otp.devRevoke')}

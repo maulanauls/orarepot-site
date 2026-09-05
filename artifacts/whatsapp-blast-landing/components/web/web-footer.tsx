@@ -31,7 +31,7 @@ export function WebFooter() {
           <div className="lg:w-1/3 mb-12 lg:mb-0">
             <Link href="/" className="flex items-center mb-3">
               <img
-                src="/logo-orarepot.png"
+                src="/logo-orarepot.svg"
                 alt="Ora Repot"
                 className="h-8 w-auto max-w-[168px] object-contain object-left"
               />

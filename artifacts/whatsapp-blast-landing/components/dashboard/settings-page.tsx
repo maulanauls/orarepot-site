@@ -24,8 +24,8 @@ import {
   type AccountAppearance,
   type AccountProfile,
   type SettingsTab,
-} from '@/lib/account-settings';
-import { cn } from '@/lib/utils';
+import { getStoredUser, persistSession, getToken, clearSession } from '@/lib/session';
+import { patchMe } from '@/lib/orarepot-api';
 
 const TABS: {
   id: SettingsTab;
@@ -57,7 +57,12 @@ export function SettingsPage() {
 
   useEffect(() => {
     const stored = getAccountSettings();
-    setProfile(stored.profile);
+    const user = getStoredUser();
+    setProfile({
+      ...stored.profile,
+      name: user?.full_name || stored.profile.name,
+      email: user?.email || stored.profile.email,
+    });
     setAppearance(stored.appearance);
     setAffiliateEnabled(stored.affiliateEnabled);
     setTheme(stored.appearance.theme);
@@ -80,8 +85,15 @@ export function SettingsPage() {
     window.setTimeout(() => setSaved(''), 1600);
   }
 
-  function onUpdateProfile() {
+  async function onUpdateProfile() {
     persist({ profile });
+    try {
+      const user = await patchMe(profile.name);
+      const token = getToken();
+      if (token) persistSession({ token, user });
+    } catch {
+      /* local save still applied */
+    }
   }
 
   function onUpdateAppearance() {
@@ -104,6 +116,7 @@ export function SettingsPage() {
   function onDeleteAccount() {
     if (!window.confirm(t('settingsPage.deleteConfirm'))) return;
     localStorage.removeItem('orarepot.account.settings');
+    clearSession();
     router.push('/sign-in');
   }
 

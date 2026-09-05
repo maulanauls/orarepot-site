@@ -8,6 +8,8 @@ import { toAbsoluteUrl } from '@/lib/helpers';
 import { isLocale, type Locale } from '@/lib/i18n/config';
 import { dashboardPoppins } from '@/lib/fonts/dashboard';
 import { cn } from '@/lib/utils';
+import { getStoredUser, clearSession } from '@/lib/session';
+import { logoutApi } from '@/lib/orarepot-api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -42,6 +44,7 @@ const I18N_LANGUAGES: {
 
 export function UserDropdownMenu({ trigger }: { trigger: ReactNode }) {
   const { locale, setLocale, t } = useLocale();
+  const user = getStoredUser();
 
   const currentLanguage = useMemo(
     () => I18N_LANGUAGES.find((l) => l.code === locale) ?? I18N_LANGUAGES[0],
@@ -64,10 +67,10 @@ export function UserDropdownMenu({ trigger }: { trigger: ReactNode }) {
           />
           <div className="flex flex-col min-w-0">
             <span className="text-sm text-mono font-semibold truncate">
-              {t('header.merchantName')}
+              {user?.full_name || t('header.merchantName')}
             </span>
             <span className="text-xs text-muted-foreground truncate">
-              merchant@orarepot.com
+              {user?.email || 'merchant@orarepot.com'}
             </span>
           </div>
         </div>
@@ -133,8 +136,18 @@ export function UserDropdownMenu({ trigger }: { trigger: ReactNode }) {
         <DropdownMenuSeparator />
 
         <div className="p-2">
-          <Button variant="outline" size="sm" className="w-full" asChild>
-            <Link href="/sign-in">{t('header.logout')}</Link>
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={() => {
+              void logoutApi().finally(() => {
+                clearSession();
+                window.location.href = '/sign-in';
+              });
+            }}
+          >
+            {t('header.logout')}
           </Button>
         </div>
       </DropdownMenuContent>

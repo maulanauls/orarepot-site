@@ -4,6 +4,41 @@ export type OtpTemplateStatus = 'ACTIVE' | 'PENDING' | 'REJECTED' | 'PAUSED';
 /** Sell rate charged to merchant per delivered OTP (IDR). */
 export const OTP_COST_PER_MESSAGE = 600;
 
+/** Locked Meta AUTHENTICATION templates — all merchants share these. */
+export const PLATFORM_OTP = {
+  id: {
+    name: 'otp_merchant_id',
+    language: 'Indonesian',
+    languageCode: 'id',
+    body: '*{{1}}* adalah kode verifikasi Anda. Demi keamanan, jangan bagikan kode ini.',
+    buttonLabel: 'Salin Kode',
+  },
+  en: {
+    name: 'otp_merchant',
+    language: 'English',
+    languageCode: 'en',
+    body: '*{{1}}* is your verification code. For your security, do not share this code.',
+    buttonLabel: 'Copy Code',
+  },
+} as const;
+
+export const PLATFORM_OTP_DEFAULTS = [PLATFORM_OTP.id, PLATFORM_OTP.en] as const;
+
+export function isPlatformOtpName(name: string) {
+  return name === PLATFORM_OTP.id.name || name === PLATFORM_OTP.en.name;
+}
+
+export function platformOtpByName(name: string) {
+  return PLATFORM_OTP_DEFAULTS.find((item) => item.name === name);
+}
+
+export function authTemplateBody(languageCode: string) {
+  return languageCode === 'en' || languageCode === 'en_US'
+    ? PLATFORM_OTP.en.body
+    : PLATFORM_OTP.id.body;
+}
+
+
 export type OtpTemplateMetricPoint = {
   label: string;
   delivered: number;

@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Bot, CreditCard, FileText, Radio, ShieldCheck } from 'lucide-react';
 import { DashboardShell } from '@/components/dashboard/shell';
 import { useT } from '@/components/i18n/locale-provider';
@@ -24,11 +23,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  createPaySession,
   FEATURES,
   formatIdr,
-  getAccount,
-  getInvoices,
   remainingBalance,
   remainingUnits,
   TOPUP_PRESETS,
@@ -39,6 +35,8 @@ import {
   type Invoice,
   type PayMethod,
 } from '@/lib/billing';
+import { fetchInvoices, fetchWallet, topupWallet } from '@/lib/orarepot-api';
+import { getStoredUser } from '@/lib/session';
 import { cn } from '@/lib/utils';
 
 function featureMeta(feature: BillingFeature) {
@@ -53,7 +51,6 @@ function featureMeta(feature: BillingFeature) {
 
 export function BillingPage() {
   const t = useT();
-  const router = useRouter();
   const [account, setAccount] = useState<BillingAccount | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [amount, setAmount] = useState(50_000);
@@ -63,8 +60,12 @@ export function BillingPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    setAccount(getAccount());
-    setInvoices(getInvoices());
+    fetchWallet()
+      .then(setAccount)
+      .catch(() => setAccount(null));
+    fetchInvoices()
+      .then(setInvoices)
+      .catch(() => setInvoices([]));
   }, []);
 
   const payAmount = custom ? Number(custom.replace(/\D/g, '')) || 0 : amount;
@@ -75,15 +76,19 @@ export function BillingPage() {
     [payAmount, method, bank],
   );
 
-  function onTopup() {
+  async function onTopup() {
     if (!canSubmit) return;
     setSubmitting(true);
-    const session = createPaySession({
-      amount: payAmount,
-      method,
-      bank: method === 'va' ? bank : undefined,
-    });
-    router.push(`/pay/${session.id}`);
+    try {
+      const user = getStoredUser();
+      await topupWallet(payAmount, user?.full_name || user?.email || 'Merchant');
+      setAccount(await fetchWallet());
+      setInvoices(await fetchInvoices());
+    } catch {
+      /* keep form */
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (

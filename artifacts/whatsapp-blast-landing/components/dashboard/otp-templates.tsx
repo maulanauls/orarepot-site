@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
   ColumnDef,
   getCoreRowModel,
@@ -37,6 +36,8 @@ import {
   CardToolbar,
 } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { DataGrid, useDataGrid } from '@/components/ui/data-grid';
 import { DataGridColumnHeader } from '@/components/ui/data-grid-column-header';
 import { DataGridColumnVisibility } from '@/components/ui/data-grid-column-visibility';
@@ -46,17 +47,6 @@ import {
   DataGridTableRowSelect,
   DataGridTableRowSelectAll,
 } from '@/components/ui/data-grid-table';
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Popover,
   PopoverContent,
@@ -76,12 +66,12 @@ import {
   CATEGORY_LABEL,
   bodyPreview,
   formatDateId,
-  getAllTemplates,
-  saveNewTemplate,
   type OtpTemplate,
   type OtpTemplateCategory,
   type OtpTemplateStatus,
 } from '@/lib/otp-templates';
+import { ensurePlatformTemplates, fetchOtpSends } from '@/lib/orarepot-api';
+import { enrichTemplates } from '@/lib/otp-dashboard';
 
 const CATEGORIES: OtpTemplateCategory[] = [
   'AUTHENTICATION',
@@ -94,7 +84,7 @@ const STATUSES: OtpTemplateStatus[] = [
   'REJECTED',
   'PAUSED',
 ];
-const LANGUAGES = ['Indonesian', 'English (US)'] as const;
+const LANGUAGES = ['Indonesian', 'English'] as const;
 
 function statusBadge(t: OtpTemplate) {
   const label = t.statusLabel || CATEGORY_LABEL[t.category];
@@ -128,20 +118,12 @@ function statusBadge(t: OtpTemplate) {
 
 export function OtpTemplatesPage() {
   const t = useT();
-  const router = useRouter();
   const [templates, setTemplates] = useState<OtpTemplate[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [range, setRange] = useState('7d');
-  const [createOpen, setCreateOpen] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [formName, setFormName] = useState('');
-  const [formLang, setFormLang] = useState('Indonesian');
-  const [formBody, setFormBody] = useState(
-    '{{1}} adalah kode verifikasi Anda. Demi keamanan, jangan bagikan kode ini.',
-  );
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
@@ -152,7 +134,9 @@ export function OtpTemplatesPage() {
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 
   useEffect(() => {
-    setTemplates(getAllTemplates());
+    Promise.all([ensurePlatformTemplates(), fetchOtpSends()])
+      .then(([list, sends]) => setTemplates(enrichTemplates(list, sends)))
+      .catch(() => setTemplates([]));
   }, []);
 
   const filteredData = useMemo(() => {
@@ -339,24 +323,6 @@ export function OtpTemplatesPage() {
     setPagination((p) => ({ ...p, pageIndex: 0 }));
   };
 
-  const onCreate = () => {
-    if (!formName.trim() || !formBody.trim()) return;
-    setCreating(true);
-    const langCode = formLang === 'English (US)' ? 'en_US' : 'id';
-    const created = saveNewTemplate({
-      name: formName,
-      language: formLang,
-      languageCode: langCode,
-      body: formBody,
-      category: 'AUTHENTICATION',
-    });
-    setTemplates(getAllTemplates());
-    setCreateOpen(false);
-    setCreating(false);
-    setFormName('');
-    router.push(`/dashboard/otp/templates/${created.id}`);
-  };
-
   const Toolbar = () => {
     const { table: gridTable } = useDataGrid();
     return (
@@ -369,7 +335,7 @@ export function OtpTemplatesPage() {
             </Button>
           }
         />
-            <Button onClick={() => setCreateOpen(true)}>
+        <Button disabled title={t('otp.createDisabled')}>
           <Plus /> {t('otp.createTemplate')}
         </Button>
       </CardToolbar>
@@ -549,64 +515,6 @@ export function OtpTemplatesPage() {
           </Card>
         </TabsContent>
       </Tabs>
-
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('otp.createTitle')}</DialogTitle>
-            <DialogDescription>{t('otp.createDesc')}</DialogDescription>
-          </DialogHeader>
-          <DialogBody className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="tpl-name">{t('otp.templateName')}</Label>
-              <Input
-                id="tpl-name"
-                placeholder="otp_verification"
-                value={formName}
-                onChange={(e) => setFormName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>{t('common.language')}</Label>
-              <Select value={formLang} onValueChange={setFormLang}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {LANGUAGES.map((l) => (
-                    <SelectItem key={l} value={l}>
-                      {l}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="tpl-body">{t('otp.messageBody')}</Label>
-              <textarea
-                id="tpl-body"
-                className="flex min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30 focus-visible:border-ring"
-                value={formBody}
-                onChange={(e) => setFormBody(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground m-0">
-                {t('otp.otpVarHint')}
-              </p>
-            </div>
-          </DialogBody>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateOpen(false)}>
-              {t('common.cancel')}
-            </Button>
-            <Button
-              onClick={onCreate}
-              disabled={creating || !formName.trim() || !formBody.trim()}
-            >
-              {creating ? t('otp.saving') : t('otp.saveDraft')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </DashboardShell>
   );
 }

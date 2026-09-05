@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ora Repot — How to run FE + BE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0c1211;
+      --bg-2: #121a19;
+      --line: #243330;
+      --text: #e8eee8;
+      --muted: #9aaba8;
+      --teal: #0f6b66;
+      --lime: #c6e800;
+      --warn: #e6b325;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--text); font-family: Poppins, ui-sans-serif, system-ui, sans-serif; }
+    a { color: var(--lime); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 40px 24px 80px; }
+    header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 32px; }
+    .mark { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: 0.04em; }
+    .r {
+      width: 28px; height: 28px; border-radius: 6px;
+      background: var(--teal); color: var(--lime);
+      display: grid; place-items: center; font-weight: 700; font-size: 16px;
+    }
+    h1 { font-size: 28px; font-weight: 700; margin: 0 0 8px; }
+    .lead { color: var(--muted); margin: 0; max-width: 62ch; line-height: 1.55; }
+    nav.toc { display: flex; flex-wrap: wrap; gap: 8px; margin: 24px 0 8px; }
+    nav.toc a {
+      color: var(--text); background: var(--bg-2); border: 1px solid var(--line);
+      padding: 6px 10px; border-radius: 999px; font-size: 12px; font-weight: 500;
+    }
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 24px 0; }
+    .stat { background: var(--bg-2); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+    .stat b { display: block; font-size: 22px; font-weight: 700; }
+    .stat span { color: var(--muted); font-size: 12px; }
+    h2 { font-size: 18px; margin: 36px 0 12px; padding-top: 8px; border-top: 1px solid var(--line); }
+    h3 { font-size: 14px; margin: 18px 0 8px; color: var(--lime); }
+    p, li { line-height: 1.55; color: var(--text); }
+    .muted { color: var(--muted); }
+    .callout {
+      border: 1px solid var(--line); background: var(--bg-2);
+      border-radius: 10px; padding: 14px 16px; margin: 14px 0;
+    }
+    .callout.warn { border-color: #5a4a18; }
+    .callout b { display: block; margin-bottom: 4px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+    tr:nth-child(even) td { background: #101817; }
+    .cmd {
+      position: relative; background: #0a0f0e; border: 1px solid var(--line);
+      border-radius: 10px; padding: 14px 48px 14px 16px; margin: 10px 0 16px;
+    }
+    pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12.5px; line-height: 1.5; }
+    .copy {
+      position: absolute; top: 8px; right: 8px; background: var(--teal); color: #fff;
+      border: 0; border-radius: 6px; padding: 4px 8px; font: 600 11px Poppins, sans-serif;
+      cursor: pointer;
+    }
+    .copy:hover { filter: brightness(1.1); }
+    ol.steps { padding-left: 20px; }
+    ol.steps li { margin: 8px 0; }
+    code { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 0.92em; color: var(--lime); }
+    footer { margin-top: 48px; color: var(--muted); font-size: 12px; }
+    @media (max-width: 720px) {
+      .stats { grid-template-columns: 1fr 1fr; }
+      header { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <div class="mark"><span class="r">R</span> ORA REPOT</div>
+        <h1>How to run FE + BE</h1>
+        <p class="lead">Urutan start seluruh landing, docs, dan microservices. Postgres + Redis sudah di VPS. Password dan token hanya di file <code>.env</code> — jangan di-commit.</p>
+      </div>
+    </header>
+
+    <nav class="toc">
+      <a href="#mode">Mode</a>
+      <a href="#prasyarat">Prasyarat</a>
+      <a href="#fe">Frontend</a>
+      <a href="#be">Backend</a>
+      <a href="#ports">Port</a>
+      <a href="#cek">Cek sehat</a>
+      <a href="#stop">Stop</a>
+    </nav>
+
+    <div class="stats">
+      <div class="stat"><b>5173</b><span>Landing + dashboard</span></div>
+      <div class="stat"><b>5174</b><span>Docs</span></div>
+      <div class="stat"><b>8080</b><span>Gateway full stack</span></div>
+      <div class="stat"><b>8101</b><span>Identity register/login</span></div>
+    </div>
+
+    <div class="callout" id="mode">
+      <b>Dua mode</b>
+      <p class="muted" style="margin:0"><b>A — tes register cepat:</b> identity Cargo :8101 + FE :5173.<br />
+      <b>B — seluruh service:</b> <code>docker compose up --build -d</code> (gateway :8080) + kedua FE.<br />
+      Kalau Cargo identity sudah jalan, stop dulu sebelum compose — port 8101 bentrok.</p>
+    </div>
+
+    <h2 id="prasyarat">0. Prasyarat</h2>
+    <table>
+      <thead><tr><th>Alat</th><th>Untuk apa</th></tr></thead>
+      <tbody>
+        <tr><td>Node 23 + npm</td><td>Landing 5173, docs 5174, NestJS</td></tr>
+        <tr><td>Docker Desktop</td><td>Gateway Java 25, Kafka, semua container BE</td></tr>
+        <tr><td>Rust (opsional)</td><td>Identity / billing / otp tanpa Docker</td></tr>
+        <tr><td><code>orarepot-be/.env</code></td><td>DB VPS, Redis, JWT, <code>META_WA_TOKEN</code></td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="fe">1. Frontend</h2>
+    <p>Root repo: <code>/Applications/DEVELOPMENT/TIKN</code></p>
+
+    <h3>Landing + dashboard — :5173</h3>
+    <p class="muted"><code>.env.local</code> → <code>NEXT_PUBLIC_API_BASE_URL</code>. Identity saja: <code>http://localhost:8101</code>. Full stack: <code>http://localhost:8080</code>. Restart npm setelah ganti env. Password daftar minimal 8 karakter. WhatsApp <code>08xx</code> atau <code>+62</code>.</p>
+    <div class="cmd" data-cmd="cd /Applications/DEVELOPMENT/TIKN/orarepot-site/artifacts/whatsapp-blast-landing && npm install && npm run dev"><button class="copy" type="button">Salin</button><pre>cd /Applications/DEVELOPMENT/TIKN/orarepot-site/artifacts/whatsapp-blast-landing
+npm install
+npm run dev</pre></div>
+    <p>Daftar: <a href="http://localhost:5173/register/diorarepot">http://localhost:5173/register/diorarepot</a>
+      · halaman ini: <a href="http://localhost:5173/how-to.html">http://localhost:5173/how-to.html</a></p>
+
+    <h3>Docs — :5174</h3>
+    <div class="cmd" data-cmd="cd /Applications/DEVELOPMENT/TIKN/orarepot-site/artifacts/orarepot-docs && npm install && npm run dev"><button class="copy" type="button">Salin</button><pre>cd /Applications/DEVELOPMENT/TIKN/orarepot-site/artifacts/orarepot-docs
+npm install
+npm run dev</pre></div>
+
+    <h2 id="be">2. Backend</h2>
+    <h3>Mode B — semua service (Docker)</h3>
+    <ol class="steps">
+      <li>Pastikan Docker Desktop nyala.</li>
+      <li>Isi <code>orarepot-be/.env</code> dari <code>.env.example</code>. <code>META_WA_TOKEN</code> untuk kirim WhatsApp; <code>WHATSAPP_STUB=true</code> kalau belum mau hit Meta.</li>
+      <li>Stop Cargo identity jika :8101 sudah terpakai.</li>
+      <li>Build + up, lalu seed.</li>
+    </ol>
+    <div class="cmd" data-cmd="cd /Applications/DEVELOPMENT/TIKN/orarepot-site/artifacts/orarepot-be && docker compose up --build -d && make seed"><button class="copy" type="button">Salin</button><pre>cd /Applications/DEVELOPMENT/TIKN/orarepot-site/artifacts/orarepot-be
+docker compose up --build -d
+make seed</pre></div>
+    <p class="muted">Seed: <code>hello@orarepot.com</code> / <code>orarepot1</code> · Gateway <a href="http://localhost:8080">http://localhost:8080</a></p>
+    <p class="muted">Postgres/Redis lokal (bukan VPS): <code>docker compose --profile local-infra up -d</code></p>
+
+    <div class="callout warn">
+      <b>Port 8101</b>
+      Identity Cargo dan container identity sama-sama bind 8101. Cek: <code>lsof -nP -iTCP:8101 -sTCP:LISTEN</code>
+    </div>
+
+    <h3>Mode A — register saja (tanpa Docker)</h3>
+    <div class="cmd" data-cmd="cd /Applications/DEVELOPMENT/TIKN/orarepot-site/artifacts/orarepot-be/rust && set -a && source ../.env && set +a && export DATABASE_URL=&quot;$DATABASE_URL_IDENTITY&quot; BIND=0.0.0.0:8101 RUST_LOG=info && cargo run -p identity"><button class="copy" type="button">Salin</button><pre>cd /Applications/DEVELOPMENT/TIKN/orarepot-site/artifacts/orarepot-be/rust
+set -a && source ../.env && set +a
+export DATABASE_URL="$DATABASE_URL_IDENTITY" BIND=0.0.0.0:8101 RUST_LOG=info
+cargo run -p identity</pre></div>
+    <p class="muted">FE harus <code>NEXT_PUBLIC_API_BASE_URL=http://localhost:8101</code></p>
+
+    <h2 id="ports">Peta port</h2>
+    <table>
+      <thead><tr><th>Port</th><th>Service</th><th>Runtime</th><th>Catatan</th></tr></thead>
+      <tbody>
+        <tr><td>5173</td><td>Landing + dashboard</td><td>Next.js</td><td>Register, OTP UI</td></tr>
+        <tr><td>5174</td><td>Docs</td><td>Next.js</td><td>orarepot-docs</td></tr>
+        <tr><td>8080</td><td>gateway</td><td>Java 25</td><td>Satu pintu ke semua BE</td></tr>
+        <tr><td>8101</td><td>identity</td><td>Rust</td><td>orarepot_identity</td></tr>
+        <tr><td>8102</td><td>billing</td><td>Rust</td><td>orarepot_billing</td></tr>
+        <tr><td>8103</td><td>otp</td><td>Rust</td><td>Phone Number ID 1241209412413230</td></tr>
+        <tr><td>8201</td><td>members</td><td>NestJS</td><td>orarepot_members</td></tr>
+        <tr><td>8202</td><td>merchant</td><td>NestJS</td><td>orarepot_merchant</td></tr>
+        <tr><td>8203</td><td>templates</td><td>NestJS</td><td>orarepot_templates</td></tr>
+        <tr><td>8204</td><td>developer</td><td>NestJS</td><td>/v1 API keys</td></tr>
+        <tr><td>8205</td><td>reporting</td><td>NestJS</td><td>orarepot_warehouse</td></tr>
+        <tr><td>9092</td><td>kafka</td><td>Docker</td><td>Outbox</td></tr>
+        <tr><td>5433</td><td>Postgres</td><td>VPS</td><td>8 DB orarepot_*</td></tr>
+        <tr><td>6379</td><td>Redis</td><td>VPS</td><td>Gateway</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="cek">Cek sehat</h2>
+    <div class="cmd" data-cmd="curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:5173/register/diorarepot
+curl -sS http://127.0.0.1:8101/health
+curl -sS http://127.0.0.1:8080/actuator/health"><button class="copy" type="button">Salin</button><pre>curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:5173/register/diorarepot
+curl -sS http://127.0.0.1:8101/health
+curl -sS http://127.0.0.1:8080/actuator/health</pre></div>
+    <p class="muted">Register sukses → JSON <code>token</code> + <code>user</code>. Email duplikat → HTTP 409 <code>email already registered</code>.</p>
+
+    <h2 id="stop">Stop</h2>
+    <table>
+      <thead><tr><th>Yang jalan</th><th>Cara stop</th></tr></thead>
+      <tbody>
+        <tr><td>FE 5173 / 5174</td><td>Ctrl+C di terminal <code>npm run dev</code></td></tr>
+        <tr><td>Identity Cargo</td><td>Ctrl+C di terminal cargo</td></tr>
+        <tr><td>Docker BE</td><td><code>cd orarepot-be && docker compose down</code></td></tr>
+      </tbody>
+    </table>
+
+    <footer>
+      Sumber: orarepot-be/compose.yml · Makefile · .env.example · landing :5173 · docs :5174.
+      Canvas Cursor: orarepot-runbook.canvas.tsx
+    </footer>
+  </div>
+  <script>
+    document.querySelectorAll(".copy").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const box = btn.closest(".cmd");
+        const text = box.getAttribute("data-cmd") || box.querySelector("pre").innerText;
+        await navigator.clipboard.writeText(text);
+        btn.textContent = "Tersalin";
+        setTimeout(() => { btn.textContent = "Salin"; }, 1200);
+      });
+    });
+  </script>
+</body>
+</html>

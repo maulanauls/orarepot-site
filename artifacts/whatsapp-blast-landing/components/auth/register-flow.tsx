@@ -1,11 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, Check, ShieldCheck, Smartphone } from 'lucide-react';
 import { LanguageSwitcher } from '@/components/i18n/language-switcher';
 import { useT } from '@/components/i18n/locale-provider';
+import { persistAuth, registerUser } from '@/lib/auth-api';
+import { AuthSnackbar, friendlyAuthError } from '@/components/auth/auth-snackbar';
 
 const FREE_TRIAL_KEY = 'orarepot.subscription';
 
@@ -17,34 +19,48 @@ export function RegisterFlow() {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [snack, setSnack] = useState<{ text: string; tone: 'error' | 'success' | 'info' } | null>(
+    null,
+  );
+  const closeSnack = useCallback(() => setSnack(null), []);
 
-  function onSubmit(e: FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    setSnack(null);
     setSubmitting(true);
-
-    const trialEnds = new Date();
-    trialEnds.setDate(trialEnds.getDate() + 14);
-
     try {
+      const auth = await registerUser({
+        fullName: name,
+        email,
+        password,
+        phone,
+      });
+      persistAuth(auth);
+
+      const trialEnds = new Date();
+      trialEnds.setDate(trialEnds.getDate() + 14);
       localStorage.setItem(
         FREE_TRIAL_KEY,
         JSON.stringify({
           status: 'free_trial',
           plan: 'trial',
-          name,
-          email,
-          phone,
+          name: auth.user.full_name,
+          email: auth.user.email,
+          phone: auth.user.phone_e164,
+          userId: auth.user.id,
           trialEndsAt: trialEnds.toISOString(),
           createdAt: new Date().toISOString(),
         }),
       );
-    } catch {
-      /* ignore */
-    }
-
-    window.setTimeout(() => {
       router.push('/dashboard');
-    }, 400);
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : t('auth.registerFailed');
+      setSnack({
+        text: friendlyAuthError(raw, t('auth.backendDown')),
+        tone: 'error',
+      });
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -53,7 +69,7 @@ export function RegisterFlow() {
         <aside className="reg-flow-aside">
           <div className="flex items-center justify-between gap-3 mb-4">
             <Link href="/" className="reg-flow-logo">
-              <img src="/logo-orarepot.png" alt="Ora Repot" />
+              <img src="/logo-orarepot.svg" alt="Ora Repot" />
             </Link>
             <LanguageSwitcher compact />
           </div>
@@ -116,15 +132,29 @@ export function RegisterFlow() {
               <input
                 required
                 type="password"
-                minLength={6}
+                minLength={8}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={t('auth.regPassPh')}
               />
             </label>
-            <button type="submit" className="auth-submit" disabled={submitting}>
-              {submitting ? t('auth.regCreating') : t('auth.submitRegister')}{' '}
-              <ArrowRight size={16} />
+            <button
+              type="submit"
+              className={`auth-submit${submitting ? ' is-loading' : ''}`}
+              disabled={submitting}
+              aria-busy={submitting}
+            >
+              {submitting ? (
+                <>
+                  <span className="auth-btn-spinner" aria-hidden="true" />
+                  <span className="auth-btn-label">{t('auth.regCreating')}</span>
+                </>
+              ) : (
+                <>
+                  {t('auth.submitRegister')}
+                  <ArrowRight size={16} />
+                </>
+              )}
             </button>
           </form>
 
@@ -133,6 +163,12 @@ export function RegisterFlow() {
           </p>
         </section>
       </div>
+      <AuthSnackbar
+        open={!!snack}
+        message={snack?.text ?? ''}
+        tone={snack?.tone}
+        onClose={closeSnack}
+      />
     </main>
   );
 }

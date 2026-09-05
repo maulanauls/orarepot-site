@@ -1,11 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { LanguageSwitcher } from '@/components/i18n/language-switcher';
 import { useT } from '@/components/i18n/locale-provider';
+import { loginUser, persistAuth } from '@/lib/auth-api';
+import { AuthSnackbar, friendlyAuthError } from '@/components/auth/auth-snackbar';
 
 type Mode = 'signin' | 'register';
 
@@ -13,20 +15,39 @@ export function AuthShell({ mode }: { mode: Mode }) {
   const router = useRouter();
   const t = useT();
   const [showPassword, setShowPassword] = useState(false);
-  const [message, setMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [snack, setSnack] = useState<{ text: string; tone: 'error' | 'success' | 'info' } | null>(
+    null,
+  );
+  const closeSnack = useCallback(() => setSnack(null), []);
 
   const title = mode === 'signin' ? t('auth.signInTitle') : t('auth.registerTitle');
   const subtitle =
     mode === 'signin' ? t('auth.signInSubtitle') : t('auth.registerSubtitle');
 
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const identifier = String(form.get('identifier') ?? '').trim();
+    const password = String(form.get('password') ?? '');
     if (mode === 'signin') {
-      setMessage(t('auth.signingIn'));
-      router.push('/dashboard/otp');
+      setSnack(null);
+      setSubmitting(true);
+      try {
+        const auth = await loginUser({ email: identifier, password });
+        persistAuth(auth);
+        router.push('/dashboard/otp');
+      } catch (err) {
+        setSubmitting(false);
+        const raw = err instanceof Error ? err.message : t('auth.signInFailed');
+        setSnack({
+          text: friendlyAuthError(raw, t('auth.backendDown')),
+          tone: 'error',
+        });
+      }
       return;
     }
-    setMessage(t('auth.registerReady'));
+    setSnack({ text: t('auth.registerReady'), tone: 'info' });
   }
 
   return (
@@ -37,7 +58,7 @@ export function AuthShell({ mode }: { mode: Mode }) {
         </Link>
         <div className="auth-form-wrap">
           <div className="flex items-center justify-between gap-3 mb-4">
-            <img src="/logo-orarepot.png" alt="Ora Repot" className="auth-logo !mb-0" />
+            <img src="/logo-orarepot.svg" alt="Ora Repot" className="auth-logo !mb-0" />
             <LanguageSwitcher compact />
           </div>
           <h1>{title}</h1>
@@ -92,9 +113,23 @@ export function AuthShell({ mode }: { mode: Mode }) {
               </div>
             )}
 
-            <button type="submit" className="auth-submit">
-              {mode === 'signin' ? t('auth.submitSignIn') : t('auth.submitRegister')}{' '}
-              <ArrowRight size={16} />
+            <button
+              type="submit"
+              className={`auth-submit${submitting ? ' is-loading' : ''}`}
+              disabled={submitting}
+              aria-busy={submitting}
+            >
+              {submitting ? (
+                <>
+                  <span className="auth-btn-spinner" aria-hidden="true" />
+                  <span className="auth-btn-label">{t('auth.signingIn')}</span>
+                </>
+              ) : (
+                <>
+                  {mode === 'signin' ? t('auth.submitSignIn') : t('auth.submitRegister')}
+                  <ArrowRight size={16} />
+                </>
+              )}
             </button>
           </form>
 
@@ -105,7 +140,7 @@ export function AuthShell({ mode }: { mode: Mode }) {
           <button
             type="button"
             className="google-btn"
-            onClick={() => setMessage(t('auth.googleReady'))}
+            onClick={() => setSnack({ text: t('auth.googleReady'), tone: 'info' })}
           >
             <GoogleMark />
             Google
@@ -123,8 +158,6 @@ export function AuthShell({ mode }: { mode: Mode }) {
               </>
             )}
           </p>
-
-          {message && <p className="auth-note">{message}</p>}
         </div>
       </section>
 
@@ -144,6 +177,12 @@ export function AuthShell({ mode }: { mode: Mode }) {
           <div className="bubble out">{t('auth.chatOut')}</div>
         </div>
       </aside>
+      <AuthSnackbar
+        open={!!snack}
+        message={snack?.text ?? ''}
+        tone={snack?.tone}
+        onClose={closeSnack}
+      />
     </main>
   );
 }

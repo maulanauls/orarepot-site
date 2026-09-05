@@ -38,13 +38,8 @@ import {
 } from '@/components/ui/popover';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { useT } from '@/components/i18n/locale-provider';
-import {
-  getAllOtpLogs,
-  otpLogTemplates,
-  OTP_STATUSES,
-  type OtpLog,
-  type OtpLogStatus,
-} from '@/lib/otp-logs';
+import { OTP_STATUSES, type OtpLog, type OtpLogStatus } from '@/lib/otp-logs';
+import { fetchOtpSends, fetchTemplates, mapOtpLog } from '@/lib/orarepot-api';
 
 function statusBadge(status: OtpLogStatus, label: string) {
   if (status === 'Failed') {
@@ -76,10 +71,25 @@ export function OtpLogsPage() {
   const [logs, setLogs] = useState<OtpLog[]>([]);
 
   useEffect(() => {
-    setLogs(getAllOtpLogs());
+    Promise.all([fetchOtpSends(), fetchTemplates()])
+      .then(([sends, templates]) => {
+        const names = new Map(templates.map((item) => [item.id, item.name]));
+        setLogs(
+          sends.map((row) =>
+            mapOtpLog(row, names.get(row.template_id) ?? row.template_id),
+          ),
+        );
+      })
+      .catch(() => setLogs([]));
   }, []);
 
-  const purposes = useMemo(() => otpLogTemplates(logs), [logs]);
+  const purposes = useMemo(() => {
+    const set = new Set<string>();
+    for (const row of logs) {
+      if (row.tujuan) set.add(row.tujuan);
+    }
+    return Array.from(set);
+  }, [logs]);
 
   const filteredData = useMemo(() => {
     let rows = [...logs];

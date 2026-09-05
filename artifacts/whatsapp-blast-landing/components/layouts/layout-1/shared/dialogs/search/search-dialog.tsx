@@ -12,7 +12,6 @@ import {
   Search,
   Settings,
   ShieldCheck,
-  Smartphone,
   type LucideIcon,
 } from 'lucide-react';
 import { useT } from '@/components/i18n/locale-provider';
@@ -76,13 +75,6 @@ const SEARCH_ITEMS: SearchItem[] = [
     href: '/dashboard/otp/settings',
     icon: Settings,
     category: 'otp',
-  },
-  {
-    titleKey: 'header.searchWhatsapp',
-    descKey: 'header.searchWhatsappDesc',
-    href: '/dashboard/whatsapp',
-    icon: Smartphone,
-    category: 'services',
   },
   {
     titleKey: 'header.searchAi',

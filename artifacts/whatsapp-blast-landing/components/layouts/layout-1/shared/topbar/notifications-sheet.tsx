@@ -81,7 +81,7 @@ const NOTIFS: Notif[] = [
     titleKey: 'header.n5Title',
     bodyKey: 'header.n5Body',
     timeKey: 'header.n5Time',
-    href: '/dashboard/whatsapp',
+    href: '/dashboard/otp',
     tone: 'info',
   },
 ];

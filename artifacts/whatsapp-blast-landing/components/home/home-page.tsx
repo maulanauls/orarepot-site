@@ -58,7 +58,7 @@ export function HomePage() {
             <div className="chat-stage">
               <div className="chat-phone">
                 <div className="chat-status">
-                  <img src="/logo-orarepot-icon.png" alt="" className="chat-avatar" />
+                  <img src="/logo-orarepot-icon.svg" alt="" className="chat-avatar" />
                   <div>
                     <strong>Ora Repot AI</strong>
                     <span>{t('home.chatOnline')}</span>

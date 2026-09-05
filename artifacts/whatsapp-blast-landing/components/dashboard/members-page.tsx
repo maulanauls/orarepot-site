@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Crown, Mail, Search, Shield, UserRound } from 'lucide-react';
 import { DashboardShell } from '@/components/dashboard/shell';
 import { useT } from '@/components/i18n/locale-provider';
@@ -28,12 +28,11 @@ import {
 } from '@/components/ui/select';
 import {
   countByRole,
-  getMembers,
   initials,
-  inviteMember,
   type MemberRole,
   type TeamMember,
 } from '@/lib/members';
+import { fetchMembers, inviteMemberApi } from '@/lib/orarepot-api';
 
 type RoleFilter = 'all' | MemberRole;
 
@@ -64,13 +63,19 @@ function RoleBadge({ role, label }: { role: MemberRole; label: string }) {
 
 export function MembersPage() {
   const t = useT();
-  const [rows, setRows] = useState<TeamMember[]>(() => getMembers());
+  const [rows, setRows] = useState<TeamMember[]>([]);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<RoleFilter>('all');
   const [inviteOpen, setInviteOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
   const [role, setRole] = useState<Exclude<MemberRole, 'owner'>>('agent');
+
+  useEffect(() => {
+    fetchMembers()
+      .then(setRows)
+      .catch(() => setRows([]));
+  }, []);
 
   const counts = countByRole(rows);
   const visible = useMemo(() => {
@@ -86,19 +91,22 @@ export function MembersPage() {
     });
   }, [rows, query, filter]);
 
-  function onInvite() {
+  async function onInvite() {
     if (!email.trim()) return;
-    inviteMember({
-      fullName,
-      email,
-      role,
-      teamName: null,
-    });
-    setRows(getMembers());
-    setEmail('');
-    setFullName('');
-    setRole('agent');
-    setInviteOpen(false);
+    try {
+      await inviteMemberApi({
+        fullName,
+        email,
+        role,
+      });
+      setRows(await fetchMembers());
+      setEmail('');
+      setFullName('');
+      setRole('agent');
+      setInviteOpen(false);
+    } catch {
+      /* keep dialog open */
+    }
   }
 
   const filters: { id: RoleFilter; label: string; count: number }[] = [

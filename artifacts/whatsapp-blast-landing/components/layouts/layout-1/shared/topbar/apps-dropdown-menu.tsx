@@ -7,7 +7,6 @@ import {
   CreditCard,
   Radio,
   ShieldCheck,
-  Smartphone,
   type LucideIcon,
 } from 'lucide-react';
 import { useT } from '@/components/i18n/locale-provider';
@@ -53,14 +52,6 @@ const APPS: AppItem[] = [
     descKey: 'header.appAiDesc',
     href: '/dashboard/ai',
     icon: Bot,
-    enabled: true,
-  },
-  {
-    id: 'whatsapp',
-    titleKey: 'header.appWhatsapp',
-    descKey: 'header.appWhatsappDesc',
-    href: '/dashboard/whatsapp',
-    icon: Smartphone,
     enabled: true,
   },
   {
