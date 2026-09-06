@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Bot, CreditCard, FileText, Radio, ShieldCheck } from 'lucide-react';
 import { DashboardShell } from '@/components/dashboard/shell';
-import { useT } from '@/components/i18n/locale-provider';
+import { useLocale } from '@/components/i18n/locale-provider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,6 +25,7 @@ import {
 } from '@/components/ui/select';
 import {
   FEATURES,
+  createPaySession,
   formatIdr,
   remainingBalance,
   remainingUnits,
@@ -35,7 +37,9 @@ import {
   type Invoice,
   type PayMethod,
 } from '@/lib/billing';
-import { fetchInvoices, fetchWallet, topupWallet } from '@/lib/orarepot-api';
+import { midtransLanguage } from '@/lib/midtrans';
+import { loadMidtransSnap } from '@/lib/midtrans-snap';
+import { fetchInvoices, fetchWallet } from '@/lib/orarepot-api';
 import { getStoredUser } from '@/lib/session';
 import { cn } from '@/lib/utils';
 
@@ -50,7 +54,9 @@ function featureMeta(feature: BillingFeature) {
 }
 
 export function BillingPage() {
-  const t = useT();
+  const { t, locale } = useLocale();
+  const router = useRouter();
+  const snapLanguage = midtransLanguage(locale);
   const [account, setAccount] = useState<BillingAccount | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [amount, setAmount] = useState(50_000);
@@ -58,6 +64,7 @@ export function BillingPage() {
   const [method, setMethod] = useState<PayMethod>('qris');
   const [bank, setBank] = useState('bca');
   const [submitting, setSubmitting] = useState(false);
+  const [payError, setPayError] = useState('');
 
   useEffect(() => {
     fetchWallet()
@@ -79,15 +86,62 @@ export function BillingPage() {
   async function onTopup() {
     if (!canSubmit) return;
     setSubmitting(true);
+    setPayError('');
     try {
       const user = getStoredUser();
-      await topupWallet(payAmount, user?.full_name || user?.email || 'Merchant');
-      setAccount(await fetchWallet());
-      setInvoices(await fetchInvoices());
-    } catch {
-      /* keep form */
-    } finally {
+      const session = createPaySession({
+        amount: payAmount,
+        method,
+        bank: method === 'va' ? bank : undefined,
+        customerName: user?.full_name || user?.email || 'Merchant',
+        customerRef: user?.email?.split('@')[0] || 'ORAREPOT',
+      });
+
+      const snap = await loadMidtransSnap();
+      const res = await fetch('/api/pay/snap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: session.id,
+          amount: session.amount,
+          customerName: session.customerName,
+          customerRef: session.customerRef,
+          language: snapLanguage,
+        }),
+      });
+      const data = (await res.json()) as {
+        token?: string;
+        orderId?: string;
+        error?: string;
+      };
+      if (!res.ok || !data.token) {
+        throw new Error(data.error || t('billing.snapError'));
+      }
+
+      const orderId = data.orderId || session.id;
+      snap.pay(data.token, {
+        language: snapLanguage,
+        onSuccess: () => {
+          router.push(`/pay/finish?order_id=${encodeURIComponent(orderId)}`);
+        },
+        onPending: () => {
+          setSubmitting(false);
+          setPayError(t('billing.snapPending'));
+        },
+        onError: () => {
+          router.push(`/pay/error?order_id=${encodeURIComponent(orderId)}`);
+        },
+        onClose: () => {
+          setSubmitting(false);
+        },
+      });
+    } catch (error) {
       setSubmitting(false);
+      setPayError(
+        error instanceof Error && error.message
+          ? error.message
+          : t('billing.snapError'),
+      );
     }
   }
 
@@ -239,6 +293,9 @@ export function BillingPage() {
                   </Select>
                 ) : null}
               </div>
+              {payError ? (
+                <p className="text-sm text-destructive m-0">{payError}</p>
+              ) : null}
             </CardContent>
             <CardFooter className="justify-between gap-3">
               <div>
@@ -247,7 +304,7 @@ export function BillingPage() {
               </div>
               <Button onClick={onTopup} disabled={!canSubmit || submitting}>
                 <CreditCard />
-                {submitting ? t('billing.redirecting') : t('billing.continuePay')}
+                {submitting ? t('billing.openingSnap') : t('billing.continuePay')}
               </Button>
             </CardFooter>
           </Card>

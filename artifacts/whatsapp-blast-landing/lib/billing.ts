@@ -161,6 +161,8 @@ export function createPaySession(input: {
   amount: number;
   method: PayMethod;
   bank?: string;
+  customerName?: string;
+  customerRef?: string;
 }): PaySession {
   const now = Date.now();
   const session: PaySession = {
@@ -171,8 +173,8 @@ export function createPaySession(input: {
     status: 'pending',
     createdAt: new Date(now).toISOString(),
     expiresAt: new Date(now + 60 * 60 * 1000).toISOString(),
-    customerName: 'Ora Repot Merchant',
-    customerRef: 'ORAREPOT',
+    customerName: input.customerName?.trim() || 'Ora Repot Merchant',
+    customerRef: input.customerRef?.trim() || 'ORAREPOT',
   };
   writeJson(SESSION_KEY, [session, ...getSessions()].slice(0, 40));
   return session;

@@ -12,6 +12,7 @@ import {
   getSessionByOrderId,
   type PaySession,
 } from '@/lib/billing';
+import { topupWallet } from '@/lib/orarepot-api';
 
 export function PayResultPage({ kind }: { kind: 'finish' | 'error' }) {
   const t = useT();
@@ -20,14 +21,33 @@ export function PayResultPage({ kind }: { kind: 'finish' | 'error' }) {
   const [session, setSession] = useState<PaySession | null | undefined>(undefined);
 
   useEffect(() => {
-    if (!orderId) {
-      setSession(null);
-      return;
+    let cancelled = false;
+
+    async function settle() {
+      if (!orderId) {
+        setSession(null);
+        return;
+      }
+
+      const current = getSessionByOrderId(orderId) ?? null;
+      if (kind === 'finish' && current?.status === 'pending') {
+        try {
+          await topupWallet(current.amount, current.customerName);
+        } catch {
+          /* wallet credit may already exist; still mark local session */
+        }
+        completePaySession(current.id);
+      }
+
+      if (!cancelled) {
+        setSession(getSessionByOrderId(orderId) ?? current);
+      }
     }
-    if (kind === 'finish') {
-      completePaySession(orderId);
-    }
-    setSession(getSessionByOrderId(orderId) ?? null);
+
+    void settle();
+    return () => {
+      cancelled = true;
+    };
   }, [kind, orderId]);
 
   const ok = kind === 'finish';
