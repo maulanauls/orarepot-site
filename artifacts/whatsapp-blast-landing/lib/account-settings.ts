@@ -28,7 +28,7 @@ const DEFAULT_SETTINGS: AccountSettings = {
   profile: {
     name: 'Ora Repot Merchant',
     email: 'merchant@orarepot.com',
-    imageUrl: '/media/avatars/300-2.png',
+    imageUrl: '',
   },
   appearance: {
     font: 'poppins',

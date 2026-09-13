@@ -5,6 +5,8 @@ JWT (`Authorization: Bearer`) required unless noted.
 ## identity — Rust :8101
 - `POST /auth/register` public
 - `POST /auth/login` public
+- `POST /auth/forgot-password` public (WhatsApp OTP, max 2 / user / day)
+- `POST /auth/reset-password` public
 - `POST /auth/logout`
 - `GET  /auth/me`
 - `PATCH /auth/me`
@@ -12,7 +14,7 @@ JWT (`Authorization: Bearer`) required unless noted.
 ## members — Node :8201
 - `GET  /members/me` (current user's memberships)
 - `GET  /members?merchantId=`
-- `POST /members/invites`
+- `POST /members/invites`  sends Mailjet email with accept link
 - `POST /members/invites/:id/accept`
 - `PATCH /members/:id`
 - `GET  /teams?merchantId=`
@@ -29,10 +31,13 @@ JWT (`Authorization: Bearer`) required unless noted.
 - `GET  /billing/wallets/:merchantId`
 - `GET  /billing/invoices/:merchantId`
 - `POST /billing/wallets`
-- `POST /billing/topups`
+- `POST /billing/topups`  creates **pending** Midtrans payment (no wallet credit)
+- `GET  /billing/payments/:orderId`
+- `POST /billing/payments/midtrans`  public Midtrans HTTP notification
 - `POST /internal/reserve`  (service key, not on gateway)
 - `POST /internal/capture`
 - `POST /internal/release`
+- `POST /internal/credit`  (service key; seed/admin credit)
 
 ## templates — Node :8203
 - `GET  /templates?merchantId=`

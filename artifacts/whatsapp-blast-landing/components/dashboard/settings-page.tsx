@@ -25,6 +25,7 @@ import {
   type AccountProfile,
   type SettingsTab,
 } from '@/lib/account-settings';
+import { UserAvatar } from '@/components/user-avatar';
 import { getStoredUser, persistSession, getToken, clearSession } from '@/lib/session';
 import { patchMe } from '@/lib/orarepot-api';
 import { cn } from '@/lib/utils';
@@ -186,6 +187,17 @@ export function SettingsPage() {
 
           {tab === 'profile' ? (
             <div className="max-w-xl space-y-6">
+              <div className="flex items-center gap-3">
+                <UserAvatar
+                  name={profile.name}
+                  imageUrl={profile.imageUrl}
+                  sizeClassName="size-14"
+                  className="text-lg border border-border"
+                />
+                <p className="text-sm text-muted-foreground m-0">
+                  {t('settingsPage.imageHint')}
+                </p>
+              </div>
               <Field
                 id="acct-name"
                 label={t('settingsPage.name')}

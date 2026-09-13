@@ -9,6 +9,7 @@ import { useLocale } from '@/components/i18n/locale-provider';
 import { formatIdr, getSession, type PaySession } from '@/lib/billing';
 import { midtransLanguage } from '@/lib/midtrans';
 import { loadMidtransSnap } from '@/lib/midtrans-snap';
+import { createTopup } from '@/lib/orarepot-api';
 
 export function CheckoutPage({ sessionId }: { sessionId: string }) {
   const { t, locale } = useLocale();
@@ -18,7 +19,6 @@ export function CheckoutPage({ sessionId }: { sessionId: string }) {
   const [copied, setCopied] = useState('');
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState('');
-  const [pendingNote, setPendingNote] = useState(false);
 
   useEffect(() => {
     setSession(getSession(sessionId) ?? null);
@@ -34,39 +34,47 @@ export function CheckoutPage({ sessionId }: { sessionId: string }) {
     if (!session || session.status !== 'pending') return;
     setPaying(true);
     setPayError('');
-    setPendingNote(false);
 
     try {
-      const snap = await loadMidtransSnap();
-      const res = await fetch('/api/pay/snap', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderId: session.id,
-          amount: session.amount,
-          customerName: session.customerName,
-          customerRef: session.customerRef,
-          language: snapLanguage,
-        }),
+      const pending = await createTopup({
+        amountIdr: session.amount,
+        customerName: session.customerName,
+        customerRef: session.customerRef,
+        language: snapLanguage,
+        origin: window.location.origin,
       });
-      const data = (await res.json()) as {
-        token?: string;
-        orderId?: string;
-        error?: string;
-      };
-      if (!res.ok || !data.token) {
-        throw new Error(data.error || t('billing.snapError'));
+      let token = pending.snap_token ?? '';
+      if (!token) {
+        const res = await fetch('/api/pay/snap', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderId: pending.order_id,
+            amount: pending.amount_idr,
+            customerName: session.customerName,
+            customerRef: session.customerRef,
+            language: snapLanguage,
+          }),
+        });
+        const data = (await res.json()) as {
+          token?: string;
+          error?: string;
+        };
+        if (!res.ok || !data.token) {
+          throw new Error(data.error || t('billing.snapError'));
+        }
+        token = data.token;
       }
 
-      const orderId = data.orderId || session.id;
-      snap.pay(data.token, {
+      const snap = await loadMidtransSnap();
+      const orderId = pending.order_id;
+      snap.pay(token, {
         language: snapLanguage,
         onSuccess: () => {
           router.push(`/pay/finish?order_id=${encodeURIComponent(orderId)}`);
         },
         onPending: () => {
-          setPaying(false);
-          setPendingNote(true);
+          router.push(`/pay/finish?order_id=${encodeURIComponent(orderId)}`);
         },
         onError: () => {
           router.push(`/pay/error?order_id=${encodeURIComponent(orderId)}`);
@@ -187,9 +195,6 @@ export function CheckoutPage({ sessionId }: { sessionId: string }) {
           </div>
 
           <p className="reg-lead">{t('billing.midtransNote')}</p>
-          {pendingNote ? (
-            <p className="reg-lead">{t('billing.snapPending')}</p>
-          ) : null}
           {payError ? (
             <p className="reg-lead" role="alert">
               {payError}

@@ -35,6 +35,8 @@ $$;
 CREATE TABLE mt_wallets (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   merchant_id     uuid NOT NULL UNIQUE,
+  trial_otp_used  integer NOT NULL DEFAULT 0 CHECK (trial_otp_used >= 0),
+  trial_otp_limit integer NOT NULL DEFAULT 3 CHECK (trial_otp_limit >= 0),
   created_at      timestamptz NOT NULL DEFAULT now()
 );
 
@@ -82,6 +84,7 @@ CREATE TABLE tx_wallet_reservations (
   reference_type  text NOT NULL,
   reference_id    uuid NOT NULL,
   ledger_id       uuid REFERENCES tx_wallet_ledger (id),
+  is_trial        boolean NOT NULL DEFAULT false,
   expires_at      timestamptz NOT NULL,
   created_at      timestamptz NOT NULL DEFAULT now(),
   updated_at      timestamptz NOT NULL DEFAULT now(),

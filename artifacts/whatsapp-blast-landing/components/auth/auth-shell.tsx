@@ -107,9 +107,9 @@ export function AuthShell({ mode }: { mode: Mode }) {
                   <input type="checkbox" name="remember" />
                   <span>{t('auth.remember')}</span>
                 </label>
-                <button type="button" className="linkish">
+                <Link href="/forgot-password" className="linkish">
                   {t('auth.forgot')}
-                </button>
+                </Link>
               </div>
             )}
 

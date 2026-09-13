@@ -3,55 +3,91 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { ArrowRight, CircleAlert, CircleCheck } from 'lucide-react';
+import { ArrowRight, CircleAlert, CircleCheck, LoaderCircle } from 'lucide-react';
 import { LanguageSwitcher } from '@/components/i18n/language-switcher';
 import { useT } from '@/components/i18n/locale-provider';
-import {
-  completePaySession,
-  formatIdr,
-  getSessionByOrderId,
-  type PaySession,
-} from '@/lib/billing';
-import { topupWallet } from '@/lib/orarepot-api';
+import { formatIdr } from '@/lib/billing';
+import { fetchPayment, type PaymentRow } from '@/lib/orarepot-api';
+
+type ViewStatus = 'loading' | 'pending' | 'paid' | 'failed';
+
+function viewFromPayment(status: string | undefined, kind: 'finish' | 'error'): ViewStatus {
+  if (status === 'paid') return 'paid';
+  if (status === 'expired' || status === 'failed' || status === 'canceled') return 'failed';
+  if (status === 'pending') return 'pending';
+  return kind === 'error' ? 'failed' : 'pending';
+}
 
 export function PayResultPage({ kind }: { kind: 'finish' | 'error' }) {
   const t = useT();
   const params = useSearchParams();
   const orderId = params.get('order_id') ?? params.get('orderId') ?? '';
-  const [session, setSession] = useState<PaySession | null | undefined>(undefined);
+  const [payment, setPayment] = useState<PaymentRow | null>(null);
+  const [view, setView] = useState<ViewStatus>('loading');
 
   useEffect(() => {
     let cancelled = false;
+    let ticks = 0;
+    let timer: number | undefined;
 
-    async function settle() {
+    async function poll() {
       if (!orderId) {
-        setSession(null);
-        return;
+        setView(kind === 'error' ? 'failed' : 'pending');
+        return false;
       }
-
-      const current = getSessionByOrderId(orderId) ?? null;
-      if (kind === 'finish' && current?.status === 'pending') {
-        try {
-          await topupWallet(current.amount, current.customerName);
-        } catch {
-          /* wallet credit may already exist; still mark local session */
+      try {
+        const row = await fetchPayment(orderId);
+        if (cancelled) return false;
+        setPayment(row);
+        const next = viewFromPayment(row.status, kind);
+        setView(next);
+        return next === 'pending';
+      } catch {
+        if (!cancelled) {
+          setView(kind === 'error' ? 'failed' : 'pending');
         }
-        completePaySession(current.id);
-      }
-
-      if (!cancelled) {
-        setSession(getSessionByOrderId(orderId) ?? current);
+        return !cancelled;
       }
     }
 
-    void settle();
+    void poll().then((keepGoing) => {
+      if (!keepGoing || cancelled) return;
+      timer = window.setInterval(() => {
+        ticks += 1;
+        if (ticks > 60) {
+          if (timer) window.clearInterval(timer);
+          return;
+        }
+        void poll().then((again) => {
+          if (!again && timer) window.clearInterval(timer);
+        });
+      }, 2500);
+    });
+
     return () => {
       cancelled = true;
+      if (timer) window.clearInterval(timer);
     };
   }, [kind, orderId]);
 
-  const ok = kind === 'finish';
-  const Icon = ok ? CircleCheck : CircleAlert;
+  const ok = view === 'paid';
+  const pending = view === 'pending' || view === 'loading';
+  const Icon = ok ? CircleCheck : pending ? LoaderCircle : CircleAlert;
+  const eyebrow = ok
+    ? t('billing.finishEyebrow')
+    : pending
+      ? t('billing.pendingEyebrow')
+      : t('billing.errorEyebrow');
+  const title = ok
+    ? t('billing.finishTitle')
+    : pending
+      ? t('billing.pendingTitle')
+      : t('billing.errorTitle');
+  const lead = ok
+    ? t('billing.finishLead')
+    : pending
+      ? t('billing.pendingLead')
+      : t('billing.errorLead');
 
   return (
     <main className="reg-flow-page">
@@ -63,11 +99,9 @@ export function PayResultPage({ kind }: { kind: 'finish' | 'error' }) {
             </Link>
             <LanguageSwitcher compact className="lang-switch-nav" />
           </div>
-          <p className="eyebrow">
-            {ok ? t('billing.finishEyebrow') : t('billing.errorEyebrow')}
-          </p>
-          <h1>{ok ? t('billing.finishTitle') : t('billing.errorTitle')}</h1>
-          <p>{ok ? t('billing.finishLead') : t('billing.errorLead')}</p>
+          <p className="eyebrow">{eyebrow}</p>
+          <h1>{title}</h1>
+          <p>{lead}</p>
         </aside>
 
         <section className="reg-flow-main">
@@ -79,25 +113,35 @@ export function PayResultPage({ kind }: { kind: 'finish' | 'error' }) {
             ×
           </Link>
           <div className="pay-result-icon" data-ok={ok ? 'true' : 'false'}>
-            <Icon size={28} />
+            <Icon size={28} className={pending ? 'animate-spin' : undefined} />
           </div>
-          <h2>{ok ? t('billing.finishTitle') : t('billing.errorTitle')}</h2>
-          <p className="reg-lead">
-            {ok ? t('billing.finishLead') : t('billing.errorLead')}
-          </p>
+          <h2>{title}</h2>
+          <p className="reg-lead">{lead}</p>
 
-          {session ? (
+          {payment ? (
             <div className="pay-detail-card">
               <div className="pay-copy-row">
                 <div>
                   <span>{t('billing.reference')}</span>
-                  <strong>{session.id}</strong>
+                  <strong>{payment.order_id}</strong>
                 </div>
               </div>
               <div className="pay-copy-row">
                 <div>
                   <span>{t('billing.payAmount')}</span>
-                  <strong>{formatIdr(session.amount)}</strong>
+                  <strong>{formatIdr(payment.amount_idr)}</strong>
+                </div>
+              </div>
+              <div className="pay-copy-row">
+                <div>
+                  <span>{t('billing.colStatus')}</span>
+                  <strong>
+                    {payment.status === 'paid'
+                      ? t('billing.paid')
+                      : payment.status === 'pending'
+                        ? t('billing.pending')
+                        : t('billing.errorTitle')}
+                  </strong>
                 </div>
               </div>
             </div>
@@ -114,11 +158,15 @@ export function PayResultPage({ kind }: { kind: 'finish' | 'error' }) {
 
           <div className="reg-actions">
             <Link href="/dashboard/billing" className="auth-submit">
-              {ok ? t('billing.finishCta') : t('billing.errorCta')}{' '}
+              {ok
+                ? t('billing.finishCta')
+                : pending
+                  ? t('billing.backBilling')
+                  : t('billing.errorCta')}{' '}
               <ArrowRight size={16} />
             </Link>
-            {!ok && orderId ? (
-              <Link href={`/pay/${orderId}`} className="button-ghost">
+            {!ok && !pending && orderId ? (
+              <Link href="/dashboard/billing" className="button-ghost">
                 {t('billing.retryPay')}
               </Link>
             ) : null}

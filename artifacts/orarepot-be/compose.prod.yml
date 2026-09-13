@@ -18,6 +18,12 @@ services:
       DATABASE_URL: ${DATABASE_URL_IDENTITY}
       BIND: 0.0.0.0:8101
       RUST_LOG: info
+      WHATSAPP_STUB: ${WHATSAPP_STUB:-false}
+      META_GRAPH_VERSION: ${META_GRAPH_VERSION:-v26.0}
+      META_PHONE_NUMBER_ID: ${META_PHONE_NUMBER_ID:-}
+      META_OTP_TEMPLATE_ID: ${META_OTP_TEMPLATE_ID:-otp_merchant_id}
+      META_OTP_TEMPLATE_ID_LANG: ${META_OTP_TEMPLATE_ID_LANG:-id}
+      META_WA_TOKEN: ${META_WA_TOKEN:-}
     ports: ["8101:8101"]
     networks: [app-network]
 
@@ -31,6 +37,9 @@ services:
       DATABASE_URL: ${DATABASE_URL_BILLING}
       BIND: 0.0.0.0:8102
       RUST_LOG: info
+      MIDTRANS_SERVER_KEY: ${MIDTRANS_SERVER_KEY:-}
+      MIDTRANS_IS_PRODUCTION: ${MIDTRANS_IS_PRODUCTION:-false}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-https://orarepot.com}
     ports: ["8102:8102"]
     networks: [app-network]
 
@@ -73,6 +82,11 @@ services:
       SERVICE_NAME: orarepot-members
       DATABASE_URL: ${DATABASE_URL_MEMBERS}
       PORT: 8201
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-https://orarepot.com}
+      MAILJET_API_KEY: ${MAILJET_API_KEY:-}
+      MAILJET_SECRET_KEY: ${MAILJET_SECRET_KEY:-}
+      MAILJET_FROM_EMAIL: ${MAILJET_FROM_EMAIL:-hello@orarepot.com}
+      MAILJET_FROM_NAME: ${MAILJET_FROM_NAME:-Ora Repot}
     ports: ["8201:8201"]
     networks: [app-network]
 

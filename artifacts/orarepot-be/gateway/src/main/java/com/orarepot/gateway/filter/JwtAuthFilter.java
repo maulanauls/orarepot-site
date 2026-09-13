@@ -24,6 +24,9 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
   private static final List<String> PUBLIC_PREFIXES = List.of(
       "/auth/register",
       "/auth/login",
+      "/auth/forgot-password",
+      "/auth/reset-password",
+      "/billing/payments/midtrans",
       "/v1/",
       "/actuator",
       "/health"
@@ -73,7 +76,10 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         return true;
       }
     }
-    return path.equals("/auth/register") || path.equals("/auth/login");
+    return path.equals("/auth/register")
+        || path.equals("/auth/login")
+        || path.equals("/auth/forgot-password")
+        || path.equals("/auth/reset-password");
   }
 
   private static String stringClaim(Claims claims, String name) {

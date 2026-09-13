@@ -44,8 +44,13 @@ curl -sS -X POST "$GW/members/owners" "${auth[@]}" \
 
 curl -sS -X POST "$GW/billing/wallets" "${auth[@]}" \
   -d "{\"merchant_id\":\"$merchant_id\"}" >/dev/null
-curl -sS -X POST "$GW/billing/topups" "${auth[@]}" \
-  -d "{\"merchant_id\":\"$merchant_id\",\"amount_idr\":200000,\"customer_name\":\"Dio\"}" >/dev/null
+
+BILLING_URL="${BILLING_URL:-http://127.0.0.1:8102}"
+INTERNAL_KEY="${INTERNAL_KEY:-change-me-in-production-internal}"
+curl -sS -X POST "$BILLING_URL/internal/credit" \
+  -H "content-type: application/json" \
+  -H "x-internal-key: $INTERNAL_KEY" \
+  -d "{\"merchant_id\":\"$merchant_id\",\"amount_idr\":200000,\"note\":\"seed\"}" >/dev/null
 
 curl -sS -X POST "$GW/merchant/$merchant_id/waba" "${auth[@]}" \
   -d '{"displayName":"Ora Repot","metaWabaId":"1583214010076432","metaPhoneId":"1241209412413230"}' >/dev/null

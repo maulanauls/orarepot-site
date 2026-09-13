@@ -162,7 +162,7 @@ export function enrichTemplates(
       messagesDelivered: ok,
       messagesRead: ok,
       readRate: mine.length ? ok / mine.length : 0,
-      amountSpent: spent || ok * OTP_COST_PER_MESSAGE,
+      amountSpent: spent,
       series: chart.labels.map((label, i) => ({
         label,
         sent: chart.values[i],

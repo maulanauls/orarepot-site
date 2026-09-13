@@ -41,7 +41,7 @@ import { cn } from '@/lib/utils';
 import {
   fetchOtpSends,
   fetchTemplates,
-  fetchWalletRemaining,
+  fetchWalletQuota,
   type OtpSendRow,
 } from '@/lib/orarepot-api';
 import type { OtpTemplate } from '@/lib/otp-templates';
@@ -79,6 +79,7 @@ export function OtpOverviewPage() {
   const [sends, setSends] = useState<OtpSendRow[]>([]);
   const [templates, setTemplates] = useState<OtpTemplate[]>([]);
   const [remainingIdr, setRemainingIdr] = useState(0);
+  const [trialLeft, setTrialLeft] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const bgUrl = toAbsoluteUrl('/media/images/2600x1600/bg-3.png');
 
@@ -86,11 +87,12 @@ export function OtpOverviewPage() {
     Promise.all([
       fetchOtpSends().catch(() => [] as OtpSendRow[]),
       fetchTemplates().catch(() => [] as OtpTemplate[]),
-      fetchWalletRemaining().catch(() => 0),
-    ]).then(([rows, tpls, remaining]) => {
+      fetchWalletQuota().catch(() => ({ remainingIdr: 0, trialOtpLeft: 0 })),
+    ]).then(([rows, tpls, quota]) => {
       setSends(rows);
       setTemplates(tpls);
-      setRemainingIdr(remaining);
+      setRemainingIdr(quota.remainingIdr);
+      setTrialLeft(quota.trialOtpLeft);
       setLoaded(true);
     });
   }, []);
@@ -104,7 +106,7 @@ export function OtpOverviewPage() {
   const failed = failedCount(scoped);
   const total = scoped.length;
   const rate = total === 0 ? '0%' : `${((sent / total) * 100).toFixed(1)}%`;
-  const units = otpUnitsLeft(remainingIdr);
+  const units = otpUnitsLeft(remainingIdr) + trialLeft;
   const totalDelta = periodDeltaPct(sent, sentCount(previous));
   const purposes = useMemo(
     () =>

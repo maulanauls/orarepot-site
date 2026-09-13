@@ -50,7 +50,9 @@ Seed account: `hello@orarepot.com` / `orarepot1`
 
 ## OTP send saga
 
-`POST /otp/sends` → templates `GetTemplate ACTIVE` → billing `ReserveDebit` → WhatsApp Cloud API (`META_PHONE_NUMBER_ID=1241209412413230`, template `otp_merchant_id`/`id` or `otp_merchant`/`en`) → `Capture` or `Release` → Kafka `otp.sent` / `otp.failed`.
+`POST /otp/sends` → templates `GetTemplate ACTIVE` → billing `ReserveDebit` (or 3 free trial OTPs per new merchant) → WhatsApp Cloud API (`META_PHONE_NUMBER_ID=1241209412413230`, template `otp_merchant_id`/`id` or `otp_merchant`/`en`) → `Capture` or `Release` → Kafka `otp.sent` / `otp.failed`.
+
+New members start with **Rp 0** deposit and **3 sample OTP sends**. Top-up via `POST /billing/topups` stays `pending` until Midtrans HTTP notification `POST /billing/payments/midtrans` marks it paid and credits the wallet.
 
 Set `META_WA_TOKEN` in `.env`. `WHATSAPP_STUB=true` skips Graph and returns a fake `wamid`. Without a token and with stub off, send fails instead of pretending success.
 

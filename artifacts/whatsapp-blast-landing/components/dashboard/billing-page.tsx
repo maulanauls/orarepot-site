@@ -39,7 +39,7 @@ import {
 } from '@/lib/billing';
 import { midtransLanguage } from '@/lib/midtrans';
 import { loadMidtransSnap } from '@/lib/midtrans-snap';
-import { fetchInvoices, fetchWallet } from '@/lib/orarepot-api';
+import { createTopup, fetchInvoices, fetchWallet } from '@/lib/orarepot-api';
 import { getStoredUser } from '@/lib/session';
 import { cn } from '@/lib/utils';
 
@@ -89,44 +89,56 @@ export function BillingPage() {
     setPayError('');
     try {
       const user = getStoredUser();
-      const session = createPaySession({
+      const customerName = user?.full_name || user?.email || 'Merchant';
+      const customerRef = user?.email?.split('@')[0] || 'ORAREPOT';
+      createPaySession({
         amount: payAmount,
         method,
         bank: method === 'va' ? bank : undefined,
-        customerName: user?.full_name || user?.email || 'Merchant',
-        customerRef: user?.email?.split('@')[0] || 'ORAREPOT',
+        customerName,
+        customerRef,
       });
 
-      const snap = await loadMidtransSnap();
-      const res = await fetch('/api/pay/snap', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderId: session.id,
-          amount: session.amount,
-          customerName: session.customerName,
-          customerRef: session.customerRef,
-          language: snapLanguage,
-        }),
+      const pending = await createTopup({
+        amountIdr: payAmount,
+        customerName,
+        customerRef,
+        language: snapLanguage,
+        origin: window.location.origin,
       });
-      const data = (await res.json()) as {
-        token?: string;
-        orderId?: string;
-        error?: string;
-      };
-      if (!res.ok || !data.token) {
-        throw new Error(data.error || t('billing.snapError'));
+
+      let token = pending.snap_token ?? '';
+      if (!token) {
+        const res = await fetch('/api/pay/snap', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderId: pending.order_id,
+            amount: pending.amount_idr,
+            customerName,
+            customerRef,
+            language: snapLanguage,
+          }),
+        });
+        const data = (await res.json()) as {
+          token?: string;
+          error?: string;
+        };
+        if (!res.ok || !data.token) {
+          throw new Error(data.error || t('billing.snapError'));
+        }
+        token = data.token;
       }
 
-      const orderId = data.orderId || session.id;
-      snap.pay(data.token, {
+      const snap = await loadMidtransSnap();
+      const orderId = pending.order_id;
+      snap.pay(token, {
         language: snapLanguage,
         onSuccess: () => {
           router.push(`/pay/finish?order_id=${encodeURIComponent(orderId)}`);
         },
         onPending: () => {
-          setSubmitting(false);
-          setPayError(t('billing.snapPending'));
+          router.push(`/pay/finish?order_id=${encodeURIComponent(orderId)}`);
         },
         onError: () => {
           router.push(`/pay/error?order_id=${encodeURIComponent(orderId)}`);

@@ -26,7 +26,7 @@ import {
 import { formatIdr as formatBillingIdr } from '@/lib/billing';
 import { OTP_COST_PER_MESSAGE, renderBodySample, type OtpTemplate } from '@/lib/otp-templates';
 import { parsePhoneNumbers, generateOtpCode, normalizeOtpCode } from '@/lib/otp-send';
-import { ensurePlatformTemplates, fetchWalletRemaining, sendOtp } from '@/lib/orarepot-api';
+import { ensurePlatformTemplates, fetchWalletQuota, sendOtp } from '@/lib/orarepot-api';
 import { cn } from '@/lib/utils';
 
 type SendMode = 'single' | 'bulk';
@@ -50,6 +50,7 @@ export function OtpSendPage() {
   const [doneCount, setDoneCount] = useState(0);
   const [balance, setBalance] = useState(0);
   const [otpLeft, setOtpLeft] = useState(0);
+  const [trialLeft, setTrialLeft] = useState(0);
 
   const activeTemplates = useMemo(
     () => templates.filter((item) => item.status === 'ACTIVE'),
@@ -64,16 +65,18 @@ export function OtpSendPage() {
         if (firstActive) setTemplateId(firstActive.id);
       })
       .catch(() => setTemplates([]));
-    fetchWalletRemaining().then((left) => {
-      setBalance(left);
-      setOtpLeft(Math.floor(left / OTP_COST_PER_MESSAGE));
+    fetchWalletQuota().then((quota) => {
+      setBalance(quota.remainingIdr);
+      setTrialLeft(quota.trialOtpLeft);
+      setOtpLeft(Math.floor(quota.remainingIdr / OTP_COST_PER_MESSAGE) + quota.trialOtpLeft);
     });
   }, []);
 
   const template = activeTemplates.find((item) => item.id === templateId);
   const raw = mode === 'single' ? singlePhone : bulkPhones;
   const parsed = useMemo(() => parsePhoneNumbers(raw), [raw]);
-  const cost = parsed.valid.length * OTP_COST_PER_MESSAGE;
+  const paidCount = Math.max(0, parsed.valid.length - trialLeft);
+  const cost = paidCount * OTP_COST_PER_MESSAGE;
   const code = normalizeOtpCode(otpCode);
   const previewCode = code || otpCode.replace(/\D/g, '') || '123456';
   const sampleBody = template ? renderBodySample(template.body, previewCode) : '';
@@ -93,7 +96,7 @@ export function OtpSendPage() {
       setError(t('otp.sendNeedCode'));
       return;
     }
-    if (balance < parsed.valid.length * OTP_COST_PER_MESSAGE) {
+    if (balance < paidCount * OTP_COST_PER_MESSAGE) {
       setError(t('otp.sendNoBalance'));
       return;
     }
@@ -108,9 +111,10 @@ export function OtpSendPage() {
         });
         if (row.status === 'success') ok += 1;
       }
-      const left = await fetchWalletRemaining();
-      setBalance(left);
-      setOtpLeft(Math.floor(left / OTP_COST_PER_MESSAGE));
+      const quota = await fetchWalletQuota();
+      setBalance(quota.remainingIdr);
+      setTrialLeft(quota.trialOtpLeft);
+      setOtpLeft(Math.floor(quota.remainingIdr / OTP_COST_PER_MESSAGE) + quota.trialOtpLeft);
       setDoneCount(ok);
       if (mode === 'single') setSinglePhone('');
       else setBulkPhones('');
@@ -305,6 +309,10 @@ export function OtpSendPage() {
               <div className="flex justify-between gap-3">
                 <span className="text-muted-foreground">{t('otp.sendCost')}</span>
                 <strong>{formatBillingIdr(OTP_COST_PER_MESSAGE)}</strong>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-foreground">{t('otp.sendTrial')}</span>
+                <strong>{trialLeft}</strong>
               </div>
               <div className="flex justify-between gap-3">
                 <span className="text-muted-foreground">{t('billing.remaining')}</span>

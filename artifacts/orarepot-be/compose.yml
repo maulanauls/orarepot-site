@@ -1,6 +1,6 @@
 name: orarepot-be
 
-# Default: Postgres + Redis + Kafka di 84.247.149.27 (lihat .env)
+# Default: Postgres + Redis + Kafka dari .env (gitignored)
 # Infra lokal opsional: docker compose --profile local-infra --profile local-kafka up -d
 
 x-app-env: &app-env
@@ -12,8 +12,8 @@ services:
     profiles: [local-infra]
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: orarepot
-      POSTGRES_PASSWORD: orarepot
+      POSTGRES_USER: ${POSTGRES_USER:-orarepot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: postgres
     ports:
       - "5433:5432"
@@ -72,6 +72,12 @@ services:
       DATABASE_URL: ${DATABASE_URL_IDENTITY}
       BIND: 0.0.0.0:8101
       RUST_LOG: info
+      WHATSAPP_STUB: ${WHATSAPP_STUB:-false}
+      META_GRAPH_VERSION: ${META_GRAPH_VERSION:-v26.0}
+      META_PHONE_NUMBER_ID: ${META_PHONE_NUMBER_ID:-}
+      META_OTP_TEMPLATE_ID: ${META_OTP_TEMPLATE_ID:-otp_merchant_id}
+      META_OTP_TEMPLATE_ID_LANG: ${META_OTP_TEMPLATE_ID_LANG:-id}
+      META_WA_TOKEN: ${META_WA_TOKEN:-}
     ports: ["8101:8101"]
 
   billing:
@@ -85,6 +91,9 @@ services:
       DATABASE_URL: ${DATABASE_URL_BILLING}
       BIND: 0.0.0.0:8102
       RUST_LOG: info
+      MIDTRANS_SERVER_KEY: ${MIDTRANS_SERVER_KEY:-}
+      MIDTRANS_IS_PRODUCTION: ${MIDTRANS_IS_PRODUCTION:-false}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-https://orarepot.com}
     ports: ["8102:8102"]
 
   otp:
@@ -125,6 +134,11 @@ services:
       SERVICE_NAME: orarepot-members
       DATABASE_URL: ${DATABASE_URL_MEMBERS}
       PORT: 8201
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-https://orarepot.com}
+      MAILJET_API_KEY: ${MAILJET_API_KEY:-}
+      MAILJET_SECRET_KEY: ${MAILJET_SECRET_KEY:-}
+      MAILJET_FROM_EMAIL: ${MAILJET_FROM_EMAIL:-hello@orarepot.com}
+      MAILJET_FROM_NAME: ${MAILJET_FROM_NAME:-Ora Repot}
     ports: ["8201:8201"]
 
   merchant:

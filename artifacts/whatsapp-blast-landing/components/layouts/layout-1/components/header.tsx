@@ -25,7 +25,9 @@ import { SearchDialog } from '@/components/layouts/layout-1/shared/dialogs/searc
 import { AppsDropdownMenu } from '@/components/layouts/layout-1/shared/topbar/apps-dropdown-menu';
 import { ChatSheet } from '@/components/layouts/layout-1/shared/topbar/chat-sheet';
 import { NotificationsSheet } from '@/components/layouts/layout-1/shared/topbar/notifications-sheet';
-import { UserDropdownMenu } from '@/components/layouts/layout-1/shared/topbar/user-dropdown-menu';
+import { UserAvatar } from '@/components/user-avatar';
+import { getStoredUser } from '@/lib/session';
+import { getAccountSettings } from '@/lib/account-settings';
 import { DocsSearchDialog } from '@/components/docs/docs-search-dialog';
 import { MegaMenu } from './mega-menu';
 import { SidebarMenu } from './sidebar-menu';
@@ -149,10 +151,10 @@ export function Header() {
               />
               <UserDropdownMenu
                 trigger={
-                  <img
-                    className="size-9 rounded-full border-2 border-green-500 shrink-0 cursor-pointer"
-                    src={toAbsoluteUrl('/media/avatars/300-2.png')}
-                    alt="User Avatar"
+                  <UserAvatar
+                    name={getStoredUser()?.full_name}
+                    imageUrl={getAccountSettings().profile.imageUrl}
+                    className="border-2 border-green-500 cursor-pointer"
                   />
                 }
               />

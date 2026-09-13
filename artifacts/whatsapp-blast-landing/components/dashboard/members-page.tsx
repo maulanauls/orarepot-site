@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Crown, Mail, Search, Shield, UserRound } from 'lucide-react';
 import { DashboardShell } from '@/components/dashboard/shell';
-import { useT } from '@/components/i18n/locale-provider';
+import { useT, useLocale } from '@/components/i18n/locale-provider';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -63,11 +63,14 @@ function RoleBadge({ role, label }: { role: MemberRole; label: string }) {
 
 export function MembersPage() {
   const t = useT();
+  const { locale } = useLocale();
   const [rows, setRows] = useState<TeamMember[]>([]);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<RoleFilter>('all');
   const [inviteOpen, setInviteOpen] = useState(false);
   const [email, setEmail] = useState('');
+  const [inviteMsg, setInviteMsg] = useState('');
+  const [inviteErr, setInviteErr] = useState('');
   const [fullName, setFullName] = useState('');
   const [role, setRole] = useState<Exclude<MemberRole, 'owner'>>('agent');
 
@@ -93,19 +96,23 @@ export function MembersPage() {
 
   async function onInvite() {
     if (!email.trim()) return;
+    setInviteErr('');
+    setInviteMsg('');
     try {
       await inviteMemberApi({
         fullName,
         email,
         role,
+        locale,
       });
       setRows(await fetchMembers());
       setEmail('');
       setFullName('');
       setRole('agent');
       setInviteOpen(false);
-    } catch {
-      /* keep dialog open */
+      setInviteMsg(t('members.inviteSent'));
+    } catch (err) {
+      setInviteErr(err instanceof Error ? err.message : t('members.inviteError'));
     }
   }
 
@@ -127,6 +134,9 @@ export function MembersPage() {
       }
     >
       <div className="space-y-5">
+        {inviteMsg ? (
+          <p className="text-sm text-primary m-0">{inviteMsg}</p>
+        ) : null}
         <Card>
           <CardHeader className="py-4">
             <CardTitle>{t('members.diffTitle')}</CardTitle>
@@ -270,6 +280,9 @@ export function MembersPage() {
                 </SelectContent>
               </Select>
             </div>
+            {inviteErr ? (
+              <p className="text-sm text-destructive m-0">{inviteErr}</p>
+            ) : null}
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setInviteOpen(false)}>

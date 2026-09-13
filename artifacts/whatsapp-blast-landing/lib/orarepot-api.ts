@@ -22,6 +22,7 @@ import type { TeamMember, MemberRole, MemberStatus } from '@/lib/members';
 import type { OtpLog } from '@/lib/otp-logs';
 import type { OtpApiKey, OtpWebhook } from '@/lib/otp-developer';
 import type { BillingAccount, Invoice } from '@/lib/billing';
+import { LOCALE_STORAGE_KEY } from '@/lib/i18n/config';
 
 const EMPTY_SERIES = [
   { label: '—', delivered: 0, sent: 0, read: 0 },
@@ -97,14 +98,6 @@ export async function bootstrapWorkspace(user: AuthUser, displayName?: string) {
     method: 'POST',
     body: JSON.stringify({ merchant_id: merchant.id }),
   });
-  await api('/billing/topups', {
-    method: 'POST',
-    body: JSON.stringify({
-      merchant_id: merchant.id,
-      amount_idr: 50_000,
-      customer_name: user.full_name || name,
-    }),
-  }).catch(() => undefined);
   for (const def of PLATFORM_OTP_DEFAULTS) {
     await api('/templates', {
       method: 'POST',
@@ -309,6 +302,14 @@ export type WalletRow = {
   used_otp_idr: number;
   used_broadcast_idr: number;
   used_ai_idr: number;
+  trial_otp_used?: number;
+  trial_otp_limit?: number;
+  trial_otp_left?: number;
+};
+
+export type WalletQuota = {
+  remainingIdr: number;
+  trialOtpLeft: number;
 };
 
 export async function fetchWallet(): Promise<BillingAccount> {
@@ -328,26 +329,72 @@ export async function fetchWallet(): Promise<BillingAccount> {
   };
 }
 
-export async function fetchWalletRemaining(): Promise<number> {
+export async function fetchWalletQuota(): Promise<WalletQuota> {
   const merchantId = await resolveMerchantId();
   try {
     const row = await api<WalletRow>(`/billing/wallets/${merchantId}`);
-    return Number(row.remaining_idr ?? 0);
+    const used = Number(row.trial_otp_used ?? 0);
+    const limit = Number(row.trial_otp_limit ?? 3);
+    return {
+      remainingIdr: Number(row.remaining_idr ?? 0),
+      trialOtpLeft: Number(row.trial_otp_left ?? Math.max(0, limit - used)),
+    };
   } catch {
-    return 0;
+    return { remainingIdr: 0, trialOtpLeft: 0 };
   }
 }
 
-export async function topupWallet(amountIdr: number, customerName: string) {
+export async function fetchWalletRemaining(): Promise<number> {
+  return (await fetchWalletQuota()).remainingIdr;
+}
+
+export type TopupPending = {
+  payment_id: string;
+  order_id: string;
+  status: string;
+  amount_idr: number;
+  snap_token?: string | null;
+  redirect_url?: string | null;
+};
+
+export async function createTopup(input: {
+  amountIdr: number;
+  customerName: string;
+  customerRef?: string;
+  language?: string;
+  origin?: string;
+}): Promise<TopupPending> {
   const merchantId = await resolveMerchantId();
-  return api('/billing/topups', {
+  return api<TopupPending>('/billing/topups', {
     method: 'POST',
     body: JSON.stringify({
       merchant_id: merchantId,
-      amount_idr: amountIdr,
-      customer_name: customerName,
+      amount_idr: input.amountIdr,
+      customer_name: input.customerName,
+      customer_ref: input.customerRef,
+      language: input.language,
+      origin: input.origin,
     }),
   });
+}
+
+/** @deprecated Use createTopup — wallet is credited only after Midtrans callback. */
+export async function topupWallet(amountIdr: number, customerName: string) {
+  return createTopup({ amountIdr, customerName });
+}
+
+export type PaymentRow = {
+  id: string;
+  merchant_id: string;
+  order_id: string;
+  amount_idr: number;
+  status: string;
+  snap_token?: string | null;
+  paid_at?: string | null;
+};
+
+export async function fetchPayment(orderId: string): Promise<PaymentRow> {
+  return api<PaymentRow>(`/billing/payments/${encodeURIComponent(orderId)}`);
 }
 
 export async function fetchInvoices(): Promise<Invoice[]> {
@@ -387,8 +434,14 @@ export async function inviteMemberApi(input: {
   email: string;
   fullName: string;
   role: Exclude<MemberRole, 'owner'>;
+  locale?: 'id' | 'en';
 }): Promise<TeamMember> {
   const merchantId = await resolveMerchantId();
+  const locale =
+    input.locale ??
+    (typeof window !== 'undefined' && localStorage.getItem(LOCALE_STORAGE_KEY) === 'en'
+      ? 'en'
+      : 'id');
   const row = await api<MemberRow & { memberId?: string }>('/members/invites', {
     method: 'POST',
     body: JSON.stringify({
@@ -396,6 +449,7 @@ export async function inviteMemberApi(input: {
       email: input.email,
       fullName: input.fullName,
       role: input.role,
+      locale,
     }),
   });
   return {
@@ -406,6 +460,13 @@ export async function inviteMemberApi(input: {
     status: 'invited',
     teamName: null,
   };
+}
+
+export async function acceptInviteApi(id: string, token: string) {
+  return api<{ ok: boolean; memberId: string }>(`/members/invites/${id}/accept`, {
+    method: 'POST',
+    body: JSON.stringify({ token }),
+  });
 }
 
 export async function fetchApiKeys(): Promise<OtpApiKey[]> {

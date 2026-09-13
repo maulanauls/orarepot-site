@@ -13,6 +13,7 @@ import {
 import { createHash, randomBytes } from 'crypto';
 import { bootstrap, HealthModule } from '../common/nest';
 import { httpError, insertOutbox, one, q, requireUser } from '../common/db';
+import { appPublicUrl, sendMemberInviteEmail } from '../common/mailjet';
 
 @Controller()
 class MembersController {
@@ -95,6 +96,7 @@ class MembersController {
       fullName?: string;
       role?: 'admin' | 'agent';
       teamId?: string | null;
+      locale?: string;
     },
   ) {
     const actor = requireUser(headers);
@@ -116,13 +118,34 @@ class MembersController {
     if (!member) throw httpError(500, 'invite failed');
     const token = randomBytes(24).toString('hex');
     const tokenHash = createHash('sha256').update(token).digest('hex');
-    const invite = await one(
+    const invite = await one<{
+      id: string;
+      email: string;
+      role: string;
+      status: string;
+      expires_at: string;
+    }>(
       `INSERT INTO tx_member_invites
          (merchant_id, member_id, email, role, team_id, invited_by, token_hash, expires_at)
        VALUES ($1,$2,$3,$4,$5,$6,$7, now() + interval '7 days')
        RETURNING id, email::text AS email, role::text AS role, status::text AS status, expires_at`,
       [body.merchantId, member.id, body.email.toLowerCase(), role, body.teamId ?? null, actor, tokenHash],
     );
+    if (!invite) throw httpError(500, 'invite failed');
+    const acceptUrl = `${appPublicUrl()}/invite/${invite.id}?token=${token}`;
+    try {
+      await sendMemberInviteEmail({
+        toEmail: body.email.toLowerCase(),
+        toName: body.fullName,
+        role,
+        acceptUrl,
+        locale: body.locale,
+      });
+    } catch (err) {
+      await q(`DELETE FROM tx_member_invites WHERE id = $1`, [invite.id]);
+      await q(`DELETE FROM mt_members WHERE id = $1`, [member.id]);
+      throw err;
+    }
     await q(
       `INSERT INTO cm_member_audits (merchant_id, actor_user_id, member_id, action, payload)
        VALUES ($1,$2,$3,'invited',$4::jsonb)`,
@@ -133,7 +156,7 @@ class MembersController {
       email: body.email,
       merchantId: body.merchantId,
     });
-    return { ...invite, memberId: member.id, token };
+    return { ...invite, memberId: member.id, emailed: true };
   }
 
   @Post('members/invites/:id/accept')

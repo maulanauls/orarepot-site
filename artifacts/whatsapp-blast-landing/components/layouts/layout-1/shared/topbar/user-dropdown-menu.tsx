@@ -4,11 +4,13 @@ import { ReactNode, useMemo } from 'react';
 import { CreditCard, Globe, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { useLocale } from '@/components/i18n/locale-provider';
+import { UserAvatar } from '@/components/user-avatar';
 import { toAbsoluteUrl } from '@/lib/helpers';
 import { isLocale, type Locale } from '@/lib/i18n/config';
 import { dashboardPoppins } from '@/lib/fonts/dashboard';
 import { cn } from '@/lib/utils';
 import { getStoredUser, clearSession } from '@/lib/session';
+import { getAccountSettings } from '@/lib/account-settings';
 import { logoutApi } from '@/lib/orarepot-api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -60,10 +62,10 @@ export function UserDropdownMenu({ trigger }: { trigger: ReactNode }) {
         align="end"
       >
         <div className="flex items-center gap-2.5 p-3">
-          <img
-            className="size-9 rounded-full border-2 border-green-500"
-            src={toAbsoluteUrl('/media/avatars/300-2.png')}
-            alt=""
+          <UserAvatar
+            name={user?.full_name}
+            imageUrl={getAccountSettings().profile.imageUrl}
+            className="border-2 border-green-500"
           />
           <div className="flex flex-col min-w-0">
             <span className="text-sm text-mono font-semibold truncate">

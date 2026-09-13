@@ -167,6 +167,18 @@ async fn send(State(state): State<AppState>, Json(body): Json<SendBody>) -> Resu
         .get("id")
         .and_then(|v| v.as_str())
         .and_then(|s| Uuid::parse_str(s).ok());
+    let trial = res_json
+        .get("trial")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let cost_idr: i64 = if trial {
+        0
+    } else {
+        res_json
+            .get("amount_idr")
+            .and_then(|v| v.as_i64())
+            .unwrap_or(600)
+    };
 
     let code = body
         .code
@@ -210,12 +222,13 @@ async fn send(State(state): State<AppState>, Json(body): Json<SendBody>) -> Resu
             .send()
             .await;
         sqlx::query(
-            "UPDATE tx_otp_sends SET status = 'success', reservation_id = $2, provider_message_id = $3
+            "UPDATE tx_otp_sends SET status = 'success', reservation_id = $2, provider_message_id = $3, cost_idr = $4
              WHERE id = $1",
         )
         .bind(id)
         .bind(reservation_id)
         .bind(&provider_id)
+        .bind(cost_idr)
         .execute(&state.pool)
         .await?;
         insert_outbox(
@@ -241,11 +254,12 @@ async fn send(State(state): State<AppState>, Json(body): Json<SendBody>) -> Resu
             .send()
             .await;
         sqlx::query(
-            "UPDATE tx_otp_sends SET status = 'failed', reservation_id = $2, error_message = $3 WHERE id = $1",
+            "UPDATE tx_otp_sends SET status = 'failed', reservation_id = $2, error_message = $3, cost_idr = $4 WHERE id = $1",
         )
         .bind(id)
         .bind(reservation_id)
         .bind(&error)
+        .bind(cost_idr)
         .execute(&state.pool)
         .await?;
         insert_outbox(

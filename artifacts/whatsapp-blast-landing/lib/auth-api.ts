@@ -1,6 +1,7 @@
 import { API_BASE_URL } from '@/lib/hosts';
 import { persistSession, type AuthUser } from '@/lib/session';
-import { bootstrapWorkspace, resolveMerchantId } from '@/lib/orarepot-api';
+import { acceptInviteApi, bootstrapWorkspace, resolveMerchantId } from '@/lib/orarepot-api';
+import { peekPendingInvite, savePendingInvite, takePendingInvite } from '@/lib/pending-invite';
 
 export type { AuthUser };
 export type AuthResponse = {
@@ -36,8 +37,23 @@ async function readError(res: Response): Promise<string> {
   return `HTTP ${res.status}`;
 }
 
+async function consumePendingInvite() {
+  const pending = takePendingInvite();
+  if (!pending) return;
+  try {
+    await acceptInviteApi(pending.id, pending.token);
+  } catch {
+    savePendingInvite(pending);
+  }
+}
+
 async function finishAuth(auth: AuthResponse, displayName?: string) {
   persistSession({ token: auth.token, user: auth.user });
+  if (peekPendingInvite()) {
+    await consumePendingInvite();
+    await resolveMerchantId().catch(() => undefined);
+    return auth;
+  }
   await bootstrapWorkspace(auth.user, displayName).catch(async () => {
     await resolveMerchantId();
   });
@@ -84,8 +100,39 @@ export async function loginUser(input: {
   if (!res.ok) throw new Error(await readError(res));
   const auth = (await res.json()) as AuthResponse;
   persistSession({ token: auth.token, user: auth.user });
+  await consumePendingInvite();
   await resolveMerchantId();
   return auth;
+}
+
+export async function requestPasswordOtp(identifier: string): Promise<{
+  ok: boolean;
+  remaining_today?: number;
+}> {
+  const res = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ identifier: identifier.trim() }),
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  return (await res.json()) as { ok: boolean; remaining_today?: number };
+}
+
+export async function resetPasswordWithOtp(input: {
+  identifier: string;
+  code: string;
+  password: string;
+}): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      identifier: input.identifier.trim(),
+      code: input.code.trim(),
+      password: input.password,
+    }),
+  });
+  if (!res.ok) throw new Error(await readError(res));
 }
 
 export function persistAuth(auth: AuthResponse) {
