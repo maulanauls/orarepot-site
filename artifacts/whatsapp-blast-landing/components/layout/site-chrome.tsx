@@ -12,6 +12,8 @@ function isAppShell(pathname: string) {
     pathname.startsWith('/pay') ||
     pathname.startsWith('/sign-in') ||
     pathname.startsWith('/register') ||
+    pathname.startsWith('/forgot-password') ||
+    pathname.startsWith('/invite') ||
     pathname.startsWith('/demo')
   );
 }
