@@ -1,8 +1,8 @@
 # Ora Repot landing — Next.js (artifacts/whatsapp-blast-landing)
 FROM node:22-alpine AS deps
 WORKDIR /app
-COPY package.json package-lock.json ./
-# Prefer env-based npm config (avoids `npm config set` quirks on some agents).
+COPY package.json ./
+COPY package-lock.json* ./
 # Install all deps (incl. dev) — needed for `next build` / TypeScript.
 ENV NODE_ENV= \
     NPM_CONFIG_FETCH_RETRIES=5 \
@@ -10,10 +10,12 @@ ENV NODE_ENV= \
     NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT=120000 \
     NPM_CONFIG_FETCH_TIMEOUT=300000 \
     NPM_CONFIG_REGISTRY=https://registry.npmjs.org/
+# Corrupt/incomplete lockfiles crash arborist; fall back to a fresh resolve.
 RUN for i in 1 2 3 4 5; do \
       npm install --no-audit --no-fund && break; \
-      echo "npm install failed (attempt $i), retrying..."; \
-      sleep $((i * 10)); \
+      echo "npm install failed (attempt $i); clearing lock and retrying..."; \
+      rm -f package-lock.json; \
+      sleep $((i * 5)); \
     done; \
     test -d node_modules
 
