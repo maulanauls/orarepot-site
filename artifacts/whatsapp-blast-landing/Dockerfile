@@ -1,28 +1,29 @@
 # Ora Repot landing — Next.js (artifacts/whatsapp-blast-landing)
 FROM node:22-alpine AS deps
 WORKDIR /app
+# Do NOT copy package-lock.json — a corrupt/incomplete lock crashes npm arborist
+# with: Cannot read properties of undefined (reading 'extraneous')
 COPY package.json ./
-COPY package-lock.json* ./
-# Install all deps (incl. dev) — needed for `next build` / TypeScript.
 ENV NODE_ENV= \
     NPM_CONFIG_FETCH_RETRIES=5 \
     NPM_CONFIG_FETCH_RETRY_MINTIMEOUT=20000 \
     NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT=120000 \
     NPM_CONFIG_FETCH_TIMEOUT=300000 \
     NPM_CONFIG_REGISTRY=https://registry.npmjs.org/
-# Corrupt/incomplete lockfiles crash arborist; fall back to a fresh resolve.
 RUN for i in 1 2 3 4 5; do \
       npm install --no-audit --no-fund && break; \
-      echo "npm install failed (attempt $i); clearing lock and retrying..."; \
-      rm -f package-lock.json; \
+      echo "npm install failed (attempt $i), retrying..."; \
       sleep $((i * 5)); \
     done; \
-    test -d node_modules
+    test -d node_modules/next
 
 FROM node:22-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/package.json ./package.json
 COPY . .
+# Ensure install is not re-run against a bad lock from the build context.
+RUN rm -f package-lock.json
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 # NEXT_PUBLIC_* must be present at `next build` (inlined into client bundle).
