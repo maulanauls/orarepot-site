@@ -43,6 +43,8 @@ struct RegisterBody {
 
 #[derive(Deserialize)]
 struct LoginBody {
+    /// Email or WhatsApp number (field kept as `email` for API compat; also accepts `identifier`).
+    #[serde(alias = "identifier")]
     email: String,
     password: String,
 }
@@ -161,14 +163,32 @@ async fn login(
     State(state): State<AppState>,
     Json(body): Json<LoginBody>,
 ) -> Result<Json<AuthOut>, AppError> {
-    let row = sqlx::query_as::<_, (Uuid, String, String, Option<String>, String)>(
-        "SELECT id, email::text, full_name, phone_e164, password_hash
-         FROM mt_users WHERE email = $1",
-    )
-    .bind(body.email.to_lowercase())
-    .fetch_optional(&state.pool)
-    .await?
+    let identifier = body.email.trim();
+    if identifier.is_empty() || body.password.is_empty() {
+        return Err(AppError::unauthorized("invalid credentials"));
+    }
+
+    let row = if identifier.contains('@') {
+        sqlx::query_as::<_, (Uuid, String, String, Option<String>, String)>(
+            "SELECT id, email::text, full_name, phone_e164, password_hash
+             FROM mt_users WHERE email = $1",
+        )
+        .bind(identifier.to_lowercase())
+        .fetch_optional(&state.pool)
+        .await?
+    } else if let Some(phone) = to_e164(identifier) {
+        sqlx::query_as::<_, (Uuid, String, String, Option<String>, String)>(
+            "SELECT id, email::text, full_name, phone_e164, password_hash
+             FROM mt_users WHERE phone_e164 = $1",
+        )
+        .bind(&phone)
+        .fetch_optional(&state.pool)
+        .await?
+    } else {
+        None
+    }
     .ok_or_else(|| AppError::unauthorized("invalid credentials"))?;
+
     if !verify_password(&body.password, &row.4) {
         return Err(AppError::unauthorized("invalid credentials"));
     }
@@ -416,11 +436,15 @@ async fn reset_password(
     .await?
     .ok_or_else(|| AppError::unauthorized("kode OTP salah atau kadaluarsa"))?;
     let hash = hash_password(&body.password)?;
-    sqlx::query("UPDATE mt_users SET password_hash = $2 WHERE id = $1")
+    let updated = sqlx::query("UPDATE mt_users SET password_hash = $2, updated_at = now() WHERE id = $1")
         .bind(user_id)
         .bind(&hash)
         .execute(&state.pool)
-        .await?;
+        .await?
+        .rows_affected();
+    if updated != 1 {
+        return Err(AppError::internal("failed to update password"));
+    }
     sqlx::query("UPDATE tx_password_resets SET consumed_at = now() WHERE id = $1")
         .bind(row.0)
         .execute(&state.pool)

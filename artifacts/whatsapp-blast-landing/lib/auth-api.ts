@@ -85,11 +85,14 @@ export async function loginUser(input: {
   email: string;
   password: string;
 }): Promise<AuthResponse> {
+  const identifier = input.email.trim();
   const res = await fetch(`${API_BASE_URL}/auth/login`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
-      email: input.email.trim(),
+      // Backend accepts email or WhatsApp via `email` / `identifier`.
+      email: identifier,
+      identifier,
       password: input.password,
     }),
   });

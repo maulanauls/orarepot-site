@@ -156,6 +156,8 @@ export function Header() {
                     name={getStoredUser()?.full_name}
                     imageUrl={getAccountSettings().profile.imageUrl}
                     className="border-2 border-green-500 cursor-pointer"
+                    role="button"
+                    tabIndex={0}
                   />
                 }
               />
