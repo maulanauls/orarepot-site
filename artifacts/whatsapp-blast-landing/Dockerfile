@@ -2,11 +2,20 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm config set fetch-retries 5 \
-  && npm config set fetch-retry-mintimeout 20000 \
-  && npm config set fetch-retry-maxtimeout 120000 \
-  && npm config set registry https://registry.npmjs.org/ \
-  && npm ci
+# Prefer env-based npm config (avoids `npm config set` quirks on some agents).
+# Install all deps (incl. dev) — needed for `next build` / TypeScript.
+ENV NODE_ENV= \
+    NPM_CONFIG_FETCH_RETRIES=5 \
+    NPM_CONFIG_FETCH_RETRY_MINTIMEOUT=20000 \
+    NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT=120000 \
+    NPM_CONFIG_FETCH_TIMEOUT=300000 \
+    NPM_CONFIG_REGISTRY=https://registry.npmjs.org/
+RUN for i in 1 2 3 4 5; do \
+      npm install --no-audit --no-fund && break; \
+      echo "npm install failed (attempt $i), retrying..."; \
+      sleep $((i * 10)); \
+    done; \
+    test -d node_modules
 
 FROM node:22-alpine AS builder
 WORKDIR /app
