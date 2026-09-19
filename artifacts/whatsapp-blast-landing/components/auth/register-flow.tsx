@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowRight, Check, ShieldCheck, Smartphone } from 'lucide-react';
 import { LanguageSwitcher } from '@/components/i18n/language-switcher';
 import { useT } from '@/components/i18n/locale-provider';
-import { persistAuth, registerUser } from '@/lib/auth-api';
+import { pendingInviteHref, persistAuth, registerUser } from '@/lib/auth-api';
 import { AuthSnackbar, friendlyAuthError } from '@/components/auth/auth-snackbar';
 
 const FREE_TRIAL_KEY = 'orarepot.subscription';
@@ -36,6 +36,12 @@ export function RegisterFlow() {
         phone,
       });
       persistAuth(auth);
+
+      const inviteHref = pendingInviteHref();
+      if (inviteHref) {
+        router.push(inviteHref);
+        return;
+      }
 
       const trialEnds = new Date();
       trialEnds.setDate(trialEnds.getDate() + 14);

@@ -469,6 +469,17 @@ export async function acceptInviteApi(id: string, token: string) {
   });
 }
 
+export async function declineInviteApi(id: string, token: string) {
+  return api<{ ok: boolean; memberId: string }>(`/members/invites/${id}/decline`, {
+    method: 'POST',
+    body: JSON.stringify({ token }),
+  });
+}
+
+export async function removeMemberApi(id: string) {
+  return api<{ ok: boolean }>(`/members/${id}`, { method: 'DELETE' });
+}
+
 export async function fetchApiKeys(): Promise<OtpApiKey[]> {
   const merchantId = await resolveMerchantId();
   const rows = await api<

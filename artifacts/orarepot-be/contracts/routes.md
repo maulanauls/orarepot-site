@@ -14,9 +14,11 @@ JWT (`Authorization: Bearer`) required unless noted.
 ## members — Node :8201
 - `GET  /members/me` (current user's memberships)
 - `GET  /members?merchantId=`
-- `POST /members/invites`  sends Mailjet email with accept link
-- `POST /members/invites/:id/accept`
+- `POST /members/invites`  sends Mailjet email with accept + decline links (row stays `invited` until accepted)
+- `POST /members/invites/:id/accept` JWT
+- `POST /members/invites/:id/decline` public (token body) — marks invite revoked + member removed
 - `PATCH /members/:id`
+- `DELETE /members/:id` remove from team (not owner)
 - `GET  /teams?merchantId=`
 - `POST /teams`
 

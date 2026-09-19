@@ -5,6 +5,7 @@ type InviteEmailInput = {
   toName?: string | null;
   role: string;
   acceptUrl: string;
+  declineUrl: string;
   locale?: string | null;
 };
 
@@ -34,7 +35,13 @@ export function inviteLocale(raw?: string | null): InviteLocale {
   return raw === 'en' ? 'en' : 'id';
 }
 
-function copy(locale: InviteLocale, role: string, name: string, acceptUrl: string) {
+function copy(
+  locale: InviteLocale,
+  role: string,
+  name: string,
+  acceptUrl: string,
+  declineUrl: string,
+) {
   if (locale === 'en') {
     const roleLabel = role === 'admin' ? 'Admin' : 'Agent';
     return {
@@ -43,9 +50,10 @@ function copy(locale: InviteLocale, role: string, name: string, acceptUrl: strin
         `Hello ${name},`,
         '',
         `You are invited to join an Ora Repot workspace as ${roleLabel}.`,
-        `Open this link (valid for 7 days): ${acceptUrl}`,
+        `Accept: ${acceptUrl}`,
+        `Decline: ${declineUrl}`,
         '',
-        'If you do not have an account yet, sign up first, then open the same link.',
+        'Links are valid for 7 days. If you do not have an account yet, sign up first, then accept.',
       ].join('\n'),
       html: `
         <div style="font-family:Inter,system-ui,sans-serif;max-width:560px;margin:0 auto;color:#111">
@@ -53,11 +61,15 @@ function copy(locale: InviteLocale, role: string, name: string, acceptUrl: strin
           <p>You are invited to join an <strong>Ora Repot</strong> workspace as <strong>${roleLabel}</strong>.</p>
           <p>
             <a href="${escapeHtml(acceptUrl)}"
-               style="display:inline-block;background:#111;color:#fff;padding:12px 18px;border-radius:8px;text-decoration:none">
-              Accept invitation
+               style="display:inline-block;background:#111;color:#fff;padding:12px 18px;border-radius:8px;text-decoration:none;margin-right:8px">
+              Accept
+            </a>
+            <a href="${escapeHtml(declineUrl)}"
+               style="display:inline-block;background:#fff;color:#111;padding:12px 18px;border-radius:8px;text-decoration:none;border:1px solid #ccc">
+              Decline
             </a>
           </p>
-          <p style="color:#555;font-size:13px">This link is valid for 7 days. If you do not have an account yet, sign up first, then open the same link.</p>
+          <p style="color:#555;font-size:13px">Links are valid for 7 days. Until you accept, you will not be an active team member.</p>
         </div>
       `,
     };
@@ -70,9 +82,10 @@ function copy(locale: InviteLocale, role: string, name: string, acceptUrl: strin
       `Halo ${name},`,
       '',
       `Anda diundang bergabung ke workspace Ora Repot sebagai ${roleLabel}.`,
-      `Buka tautan ini (berlaku 7 hari): ${acceptUrl}`,
+      `Terima: ${acceptUrl}`,
+      `Tolak: ${declineUrl}`,
       '',
-      'Jika Anda belum punya akun, daftar dulu lalu buka tautan yang sama.',
+      'Tautan berlaku 7 hari. Jika belum punya akun, daftar dulu lalu terima undangan.',
     ].join('\n'),
     html: `
       <div style="font-family:Inter,system-ui,sans-serif;max-width:560px;margin:0 auto;color:#111">
@@ -80,11 +93,15 @@ function copy(locale: InviteLocale, role: string, name: string, acceptUrl: strin
         <p>Anda diundang bergabung ke workspace <strong>Ora Repot</strong> sebagai <strong>${roleLabel}</strong>.</p>
         <p>
           <a href="${escapeHtml(acceptUrl)}"
-             style="display:inline-block;background:#111;color:#fff;padding:12px 18px;border-radius:8px;text-decoration:none">
-            Terima undangan
+             style="display:inline-block;background:#111;color:#fff;padding:12px 18px;border-radius:8px;text-decoration:none;margin-right:8px">
+            Terima
+          </a>
+          <a href="${escapeHtml(declineUrl)}"
+             style="display:inline-block;background:#fff;color:#111;padding:12px 18px;border-radius:8px;text-decoration:none;border:1px solid #ccc">
+            Tolak
           </a>
         </p>
-        <p style="color:#555;font-size:13px">Tautan berlaku 7 hari. Jika belum punya akun, daftar dulu lalu buka tautan yang sama.</p>
+        <p style="color:#555;font-size:13px">Tautan berlaku 7 hari. Sebelum diterima, Anda belum menjadi anggota aktif.</p>
       </div>
     `,
   };
@@ -97,7 +114,7 @@ export async function sendMemberInviteEmail(input: InviteEmailInput) {
   const fromName = process.env.MAILJET_FROM_NAME?.trim() || 'Ora Repot';
   const name = input.toName?.trim() || input.toEmail;
   const locale = inviteLocale(input.locale);
-  const message = copy(locale, input.role, name, input.acceptUrl);
+  const message = copy(locale, input.role, name, input.acceptUrl, input.declineUrl);
   const auth = Buffer.from(`${apiKey}:${secret}`).toString('base64');
 
   const res = await fetch('https://api.mailjet.com/v3.1/send', {

@@ -1,7 +1,7 @@
 import { API_BASE_URL } from '@/lib/hosts';
 import { persistSession, type AuthUser } from '@/lib/session';
-import { acceptInviteApi, bootstrapWorkspace, resolveMerchantId } from '@/lib/orarepot-api';
-import { peekPendingInvite, savePendingInvite, takePendingInvite } from '@/lib/pending-invite';
+import { bootstrapWorkspace, resolveMerchantId } from '@/lib/orarepot-api';
+import { peekPendingInvite } from '@/lib/pending-invite';
 
 export type { AuthUser };
 export type AuthResponse = {
@@ -37,20 +37,16 @@ async function readError(res: Response): Promise<string> {
   return `HTTP ${res.status}`;
 }
 
-async function consumePendingInvite() {
-  const pending = takePendingInvite();
-  if (!pending) return;
-  try {
-    await acceptInviteApi(pending.id, pending.token);
-  } catch {
-    savePendingInvite(pending);
-  }
+/** After login/register with a pending invite, send user to choose Accept/Decline. */
+export function pendingInviteHref(): string | null {
+  const pending = peekPendingInvite();
+  if (!pending) return null;
+  return `/invite/${pending.id}?token=${encodeURIComponent(pending.token)}`;
 }
 
 async function finishAuth(auth: AuthResponse, displayName?: string) {
   persistSession({ token: auth.token, user: auth.user });
   if (peekPendingInvite()) {
-    await consumePendingInvite();
     await resolveMerchantId().catch(() => undefined);
     return auth;
   }
@@ -100,7 +96,10 @@ export async function loginUser(input: {
   if (!res.ok) throw new Error(await readError(res));
   const auth = (await res.json()) as AuthResponse;
   persistSession({ token: auth.token, user: auth.user });
-  await consumePendingInvite();
+  if (peekPendingInvite()) {
+    await resolveMerchantId().catch(() => undefined);
+    return auth;
+  }
   await resolveMerchantId();
   return auth;
 }

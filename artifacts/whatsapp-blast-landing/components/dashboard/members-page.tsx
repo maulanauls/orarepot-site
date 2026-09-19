@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Crown, Mail, Search, Shield, UserRound } from 'lucide-react';
+import { Crown, Mail, Search, Shield, Trash2, UserRound } from 'lucide-react';
 import { DashboardShell } from '@/components/dashboard/shell';
 import { useT, useLocale } from '@/components/i18n/locale-provider';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -30,9 +30,10 @@ import {
   countByRole,
   initials,
   type MemberRole,
+  type MemberStatus,
   type TeamMember,
 } from '@/lib/members';
-import { fetchMembers, inviteMemberApi } from '@/lib/orarepot-api';
+import { fetchMembers, inviteMemberApi, removeMemberApi } from '@/lib/orarepot-api';
 
 type RoleFilter = 'all' | MemberRole;
 
@@ -61,6 +62,34 @@ function RoleBadge({ role, label }: { role: MemberRole; label: string }) {
   );
 }
 
+function StatusBadge({
+  status,
+  labels,
+}: {
+  status: MemberStatus;
+  labels: Record<'invited' | 'active' | 'suspended', string>;
+}) {
+  if (status === 'invited') {
+    return (
+      <Badge variant="warning" appearance="light" size="sm">
+        {labels.invited}
+      </Badge>
+    );
+  }
+  if (status === 'suspended') {
+    return (
+      <Badge variant="destructive" appearance="light" size="sm">
+        {labels.suspended}
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="success" appearance="light" size="sm">
+      {labels.active}
+    </Badge>
+  );
+}
+
 export function MembersPage() {
   const t = useT();
   const { locale } = useLocale();
@@ -73,6 +102,7 @@ export function MembersPage() {
   const [inviteErr, setInviteErr] = useState('');
   const [fullName, setFullName] = useState('');
   const [role, setRole] = useState<Exclude<MemberRole, 'owner'>>('agent');
+  const [removingId, setRemovingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchMembers()
@@ -89,7 +119,8 @@ export function MembersPage() {
       return (
         row.fullName.toLowerCase().includes(q) ||
         row.email.toLowerCase().includes(q) ||
-        row.role.includes(q)
+        row.role.includes(q) ||
+        row.status.includes(q)
       );
     });
   }, [rows, query, filter]);
@@ -116,12 +147,36 @@ export function MembersPage() {
     }
   }
 
+  async function onRemove(member: TeamMember) {
+    if (member.role === 'owner') return;
+    if (!window.confirm(t('members.removeConfirm', { name: member.fullName || member.email }))) {
+      return;
+    }
+    setRemovingId(member.id);
+    setInviteErr('');
+    try {
+      await removeMemberApi(member.id);
+      setRows(await fetchMembers());
+      setInviteMsg(t('members.removeOk'));
+    } catch (err) {
+      setInviteErr(err instanceof Error ? err.message : t('members.removeError'));
+    } finally {
+      setRemovingId(null);
+    }
+  }
+
   const filters: { id: RoleFilter; label: string; count: number }[] = [
     { id: 'all', label: t('members.filterAll'), count: counts.all },
     { id: 'owner', label: t('members.roleOwner'), count: counts.owner },
     { id: 'admin', label: t('members.roleAdmin'), count: counts.admin },
     { id: 'agent', label: t('members.roleAgent'), count: counts.agent },
   ];
+
+  const statusLabels = {
+    invited: t('members.statusInvited'),
+    active: t('members.statusActive'),
+    suspended: t('members.statusSuspended'),
+  };
 
   return (
     <DashboardShell
@@ -136,6 +191,9 @@ export function MembersPage() {
       <div className="space-y-5">
         {inviteMsg ? (
           <p className="text-sm text-primary m-0">{inviteMsg}</p>
+        ) : null}
+        {inviteErr && !inviteOpen ? (
+          <p className="text-sm text-destructive m-0">{inviteErr}</p>
         ) : null}
         <Card>
           <CardHeader className="py-4">
@@ -193,7 +251,9 @@ export function MembersPage() {
                     <th className="px-5 py-3 font-medium">{t('members.colMember')}</th>
                     <th className="px-5 py-3 font-medium">{t('members.colEmail')}</th>
                     <th className="px-5 py-3 font-medium">{t('members.colRole')}</th>
+                    <th className="px-5 py-3 font-medium">{t('members.colStatus')}</th>
                     <th className="px-5 py-3 font-medium">{t('members.colTeam')}</th>
+                    <th className="px-5 py-3 font-medium">{t('members.colActions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -226,9 +286,27 @@ export function MembersPage() {
                         />
                       </td>
                       <td className="px-5 py-3">
+                        <StatusBadge status={row.status} labels={statusLabels} />
+                      </td>
+                      <td className="px-5 py-3">
                         <Badge variant="outline" appearance="light" size="sm">
                           {row.teamName ?? t('members.allTeams')}
                         </Badge>
+                      </td>
+                      <td className="px-5 py-3">
+                        {row.role !== 'owner' ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => onRemove(row)}
+                            disabled={removingId === row.id}
+                          >
+                            <Trash2 className="size-3.5" />
+                            {t('members.remove')}
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
                       </td>
                     </tr>
                   ))}

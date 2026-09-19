@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { LanguageSwitcher } from '@/components/i18n/language-switcher';
 import { useT } from '@/components/i18n/locale-provider';
-import { loginUser, persistAuth } from '@/lib/auth-api';
+import { loginUser, pendingInviteHref, persistAuth } from '@/lib/auth-api';
 import { AuthSnackbar, friendlyAuthError } from '@/components/auth/auth-snackbar';
 
 type Mode = 'signin' | 'register';
@@ -36,7 +36,7 @@ export function AuthShell({ mode }: { mode: Mode }) {
       try {
         const auth = await loginUser({ email: identifier, password });
         persistAuth(auth);
-        router.push('/dashboard/otp');
+        router.push(pendingInviteHref() ?? '/dashboard/otp');
       } catch (err) {
         setSubmitting(false);
         const raw = err instanceof Error ? err.message : t('auth.signInFailed');

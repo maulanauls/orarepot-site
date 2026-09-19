@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Headers,
   Module,
@@ -132,13 +133,14 @@ class MembersController {
       [body.merchantId, member.id, body.email.toLowerCase(), role, body.teamId ?? null, actor, tokenHash],
     );
     if (!invite) throw httpError(500, 'invite failed');
-    const acceptUrl = `${appPublicUrl()}/invite/${invite.id}?token=${token}`;
+    const baseInviteUrl = `${appPublicUrl()}/invite/${invite.id}?token=${token}`;
     try {
       await sendMemberInviteEmail({
         toEmail: body.email.toLowerCase(),
         toName: body.fullName,
         role,
-        acceptUrl,
+        acceptUrl: baseInviteUrl,
+        declineUrl: `${baseInviteUrl}&action=decline`,
         locale: body.locale,
       });
     } catch (err) {
@@ -189,6 +191,29 @@ class MembersController {
     return { ok: true, memberId: invite.member_id };
   }
 
+  /** Public (token-based): invitee declines — remove pending member row from team list. */
+  @Post('members/invites/:id/decline')
+  async decline(@Param('id') id: string, @Body() body: { token: string }) {
+    const tokenHash = createHash('sha256').update(body.token ?? '').digest('hex');
+    const invite = await one<{ member_id: string; merchant_id: string; status: string }>(
+      `SELECT member_id, merchant_id, status::text AS status
+       FROM tx_member_invites WHERE id = $1 AND token_hash = $2`,
+      [id, tokenHash],
+    );
+    if (!invite || invite.status !== 'pending') throw httpError(400, 'invalid invite');
+    await q(`UPDATE tx_member_invites SET status = 'revoked' WHERE id = $1`, [id]);
+    await q(
+      `UPDATE mt_members SET status = 'removed' WHERE id = $1 AND status = 'invited'`,
+      [invite.member_id],
+    );
+    await q(
+      `INSERT INTO cm_member_audits (merchant_id, actor_user_id, member_id, action, payload)
+       VALUES ($1,NULL,$2,'declined',$3::jsonb)`,
+      [invite.merchant_id, invite.member_id, JSON.stringify({ inviteId: id })],
+    );
+    return { ok: true, memberId: invite.member_id };
+  }
+
   @Patch('members/:id')
   async patch(
     @Headers() headers: Record<string, string>,
@@ -207,6 +232,36 @@ class MembersController {
     );
     if (!row) throw httpError(404, 'member not found');
     return row;
+  }
+
+  /** Owner/admin removes invited or active non-owner from the team. */
+  @Delete('members/:id')
+  async remove(@Headers() headers: Record<string, string>, @Param('id') id: string) {
+    const actor = requireUser(headers);
+    const member = await one<{
+      id: string;
+      merchant_id: string;
+      role: string;
+      status: string;
+    }>(
+      `SELECT id, merchant_id, role::text AS role, status::text AS status
+       FROM mt_members WHERE id = $1`,
+      [id],
+    );
+    if (!member || member.status === 'removed') throw httpError(404, 'member not found');
+    if (member.role === 'owner') throw httpError(400, 'cannot remove owner');
+    await q(
+      `UPDATE tx_member_invites SET status = 'revoked'
+       WHERE member_id = $1 AND status = 'pending'`,
+      [id],
+    );
+    await q(`UPDATE mt_members SET status = 'removed' WHERE id = $1`, [id]);
+    await q(
+      `INSERT INTO cm_member_audits (merchant_id, actor_user_id, member_id, action, payload)
+       VALUES ($1,$2,$3,'removed',$4::jsonb)`,
+      [member.merchant_id, actor, id, JSON.stringify({ previousStatus: member.status })],
+    );
+    return { ok: true };
   }
 }
 

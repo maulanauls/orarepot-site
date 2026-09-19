@@ -76,6 +76,10 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         return true;
       }
     }
+    // Invitee can decline with invite token only (no JWT).
+    if (path.startsWith("/members/invites/") && path.endsWith("/decline")) {
+      return true;
+    }
     return path.equals("/auth/register")
         || path.equals("/auth/login")
         || path.equals("/auth/forgot-password")
