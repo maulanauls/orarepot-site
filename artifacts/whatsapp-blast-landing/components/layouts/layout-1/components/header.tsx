@@ -25,6 +25,7 @@ import { SearchDialog } from '@/components/layouts/layout-1/shared/dialogs/searc
 import { AppsDropdownMenu } from '@/components/layouts/layout-1/shared/topbar/apps-dropdown-menu';
 import { ChatSheet } from '@/components/layouts/layout-1/shared/topbar/chat-sheet';
 import { NotificationsSheet } from '@/components/layouts/layout-1/shared/topbar/notifications-sheet';
+import { UserDropdownMenu } from '@/components/layouts/layout-1/shared/topbar/user-dropdown-menu';
 import { UserAvatar } from '@/components/user-avatar';
 import { getStoredUser } from '@/lib/session';
 import { getAccountSettings } from '@/lib/account-settings';
