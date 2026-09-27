@@ -90,9 +90,7 @@ export async function loginUser(input: {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
-      // Backend accepts email or WhatsApp via `email` / `identifier`.
       email: identifier,
-      identifier,
       password: input.password,
     }),
   });
@@ -124,7 +122,7 @@ export async function resetPasswordWithOtp(input: {
   identifier: string;
   code: string;
   password: string;
-}): Promise<void> {
+}): Promise<{ email?: string }> {
   const res = await fetch(`${API_BASE_URL}/auth/reset-password`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -135,6 +133,7 @@ export async function resetPasswordWithOtp(input: {
     }),
   });
   if (!res.ok) throw new Error(await readError(res));
+  return (await res.json()) as { email?: string };
 }
 
 export function persistAuth(auth: AuthResponse) {

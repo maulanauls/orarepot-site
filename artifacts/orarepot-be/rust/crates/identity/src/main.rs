@@ -43,9 +43,11 @@ struct RegisterBody {
 
 #[derive(Deserialize)]
 struct LoginBody {
-    /// Email or WhatsApp number (field kept as `email` for API compat; also accepts `identifier`).
-    #[serde(alias = "identifier")]
+    /// Email or WhatsApp. `email` is the form field; `identifier` is accepted too.
+    #[serde(default)]
     email: String,
+    #[serde(default)]
+    identifier: String,
     password: String,
 }
 
@@ -159,39 +161,58 @@ async fn register(
     issue(&state, row, None).await
 }
 
+fn login_identifier(body: &LoginBody) -> String {
+    let email = body.email.trim();
+    if !email.is_empty() {
+        return email.to_string();
+    }
+    body.identifier.trim().to_string()
+}
+
 async fn login(
     State(state): State<AppState>,
     Json(body): Json<LoginBody>,
 ) -> Result<Json<AuthOut>, AppError> {
-    let identifier = body.email.trim();
+    let identifier = login_identifier(&body);
     if identifier.is_empty() || body.password.is_empty() {
         return Err(AppError::unauthorized("invalid credentials"));
     }
 
-    let row = if identifier.contains('@') {
+    let candidates = if identifier.contains('@') {
         sqlx::query_as::<_, (Uuid, String, String, Option<String>, String)>(
             "SELECT id, email::text, full_name, phone_e164, password_hash
              FROM mt_users WHERE email = $1",
         )
         .bind(identifier.to_lowercase())
-        .fetch_optional(&state.pool)
+        .fetch_all(&state.pool)
         .await?
-    } else if let Some(phone) = to_e164(identifier) {
+    } else if let Some(phone) = to_e164(&identifier) {
         sqlx::query_as::<_, (Uuid, String, String, Option<String>, String)>(
             "SELECT id, email::text, full_name, phone_e164, password_hash
              FROM mt_users WHERE phone_e164 = $1",
         )
         .bind(&phone)
-        .fetch_optional(&state.pool)
+        .fetch_all(&state.pool)
         .await?
     } else {
-        None
-    }
-    .ok_or_else(|| AppError::unauthorized("invalid credentials"))?;
+        Vec::new()
+    };
 
-    if !verify_password(&body.password, &row.4) {
-        return Err(AppError::unauthorized("invalid credentials"));
-    }
+    let matched: Vec<_> = candidates
+        .into_iter()
+        .filter(|row| verify_password(&body.password, &row.4))
+        .collect();
+
+    let row = match matched.len() {
+        0 => return Err(AppError::unauthorized("invalid credentials")),
+        1 => matched.into_iter().next().expect("len checked"),
+        _ => {
+            return Err(AppError::bad(
+                "Nomor WhatsApp ini terdaftar di lebih dari satu akun. Masuk dengan email.",
+            ));
+        }
+    };
+
     sqlx::query("UPDATE mt_users SET last_login_at = now() WHERE id = $1")
         .bind(row.0)
         .execute(&state.pool)
@@ -330,13 +351,18 @@ async fn find_user(
         return Ok(row);
     }
     if let Some(phone) = to_e164(raw) {
-        let row = sqlx::query_as::<_, (Uuid, String, Option<String>)>(
+        let rows = sqlx::query_as::<_, (Uuid, String, Option<String>)>(
             "SELECT id, email::text, phone_e164 FROM mt_users WHERE phone_e164 = $1",
         )
         .bind(&phone)
-        .fetch_optional(pool)
+        .fetch_all(pool)
         .await?;
-        return Ok(row);
+        if rows.len() > 1 {
+            return Err(AppError::bad(
+                "Nomor WhatsApp ini terdaftar di lebih dari satu akun. Gunakan email.",
+            ));
+        }
+        return Ok(rows.into_iter().next());
     }
     Ok(None)
 }
@@ -422,7 +448,7 @@ async fn reset_password(
     if code.len() < 4 || code.len() > 8 {
         return Err(AppError::bad("kode OTP tidak valid"));
     }
-    let Some((user_id, _, _)) = find_user(&state.pool, &body.identifier).await? else {
+    let Some((user_id, email, _)) = find_user(&state.pool, &body.identifier).await? else {
         return Err(AppError::unauthorized("kode OTP salah atau kadaluarsa"));
     };
     let row = sqlx::query_as::<_, (Uuid,)>(
@@ -456,7 +482,7 @@ async fn reset_password(
     .bind(user_id)
     .execute(&state.pool)
     .await?;
-    Ok(Json(serde_json::json!({ "ok": true })))
+    Ok(Json(serde_json::json!({ "ok": true, "email": email })))
 }
 
 fn digits_only(phone_e164: &str) -> String {

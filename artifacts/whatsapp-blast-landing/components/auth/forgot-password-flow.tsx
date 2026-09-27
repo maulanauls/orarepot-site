@@ -48,8 +48,14 @@ export function ForgotPasswordFlow() {
     setSnack(null);
     setSubmitting(true);
     try {
-      await resetPasswordWithOtp({ identifier, code, password });
-      setSnack({ text: t('auth.forgotDone'), tone: 'success' });
+      const result = await resetPasswordWithOtp({ identifier, code, password });
+      const email = result.email?.trim();
+      setSnack({
+        text: email
+          ? t('auth.forgotDoneEmail', { email })
+          : t('auth.forgotDone'),
+        tone: 'success',
+      });
       window.setTimeout(() => router.push('/sign-in'), 900);
     } catch (err) {
       setSubmitting(false);
