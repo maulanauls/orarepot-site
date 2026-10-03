@@ -175,6 +175,9 @@ services:
       SERVICE_NAME: orarepot-developer
       DATABASE_URL: ${DATABASE_URL_DEVELOPER}
       OTP_URL: http://otp:8103
+      TEMPLATES_URL: http://templates:8203
+      BILLING_URL: http://billing:8102
+      MERCHANT_URL: http://merchant:8202
       KAFKA_BROKERS: ${KAFKA_BROKERS}
       KAFKA_USERNAME: ${KAFKA_USERNAME:-}
       KAFKA_PASSWORD: ${KAFKA_PASSWORD:-}

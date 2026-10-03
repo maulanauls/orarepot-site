@@ -91,6 +91,34 @@ class TemplatesController {
     return row;
   }
 
+  @Get('internal/templates/by-name')
+  async internalByName(
+    @Headers() headers: Record<string, string>,
+    @Query('merchantId') merchantId: string,
+    @Query('name') name: string,
+  ) {
+    requireInternal(headers);
+    if (!merchantId || !name?.trim()) throw httpError(400, 'merchantId and name required');
+    const existing = await one<{ id: string; name: string; status: string; language_code: string }>(
+      `SELECT id, name, status::text AS status, language_code
+       FROM mt_templates WHERE merchant_id = $1 AND name = $2`,
+      [merchantId, name.trim()],
+    );
+    if (existing) return existing;
+    const platform = platformTemplate(name.trim());
+    if (!platform) throw httpError(404, 'template not found');
+    const created = await one<{ id: string; name: string; status: string; language_code: string }>(
+      `INSERT INTO mt_templates
+         (merchant_id, name, body, category, language, language_code, button_label, status, status_label)
+       VALUES ($1,$2,$3,'AUTHENTICATION',$4,$5,$6,'ACTIVE','Active')
+       ON CONFLICT (merchant_id, name) DO UPDATE SET name = EXCLUDED.name
+       RETURNING id, name, status::text AS status, language_code`,
+      [merchantId, platform.name, platform.body, platform.language, platform.languageCode, platform.button],
+    );
+    if (!created) throw httpError(500, 'template create failed');
+    return created;
+  }
+
   @Get('internal/templates/:id')
   async internalGet(@Headers() headers: Record<string, string>, @Param('id') id: string) {
     requireInternal(headers);
@@ -106,5 +134,27 @@ class TemplatesController {
 
 @Module({ imports: [HealthModule], controllers: [TemplatesController] })
 class AppModule {}
+
+function platformTemplate(name: string) {
+  if (name === 'otp_merchant_id') {
+    return {
+      name,
+      language: 'Indonesian',
+      languageCode: 'id',
+      body: '*{{1}}* adalah kode verifikasi Anda. Demi keamanan, jangan bagikan kode ini.',
+      button: 'Salin Kode',
+    };
+  }
+  if (name === 'otp_merchant') {
+    return {
+      name,
+      language: 'English',
+      languageCode: 'en',
+      body: '*{{1}}* is your verification code. For your security, do not share this code.',
+      button: 'Copy Code',
+    };
+  }
+  return null;
+}
 
 bootstrap(AppModule, 'PORT', 8203);

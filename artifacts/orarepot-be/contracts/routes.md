@@ -57,7 +57,8 @@ JWT (`Authorization: Bearer`) required unless noted.
 - `DELETE /developer/keys/:id`
 - `GET  /developer/webhooks?merchantId=`
 - `PUT  /developer/webhooks`
-- `POST /v1/otp/sends`  public API key `orp_live_…`
+- `POST /v1/otp/send`  public API key `orp_live_…` body `{ to, template, code? }` — checks subscription + OTP quota, then sends
+- `POST /v1/otp/sends`  same handler
 
 ## reporting — Node :8205
 - `GET  /reports/otp?merchantId=`

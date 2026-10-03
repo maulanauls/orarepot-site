@@ -151,44 +151,187 @@ class DeveloperController implements OnModuleInit {
     return { ...row, secret };
   }
 
+  @Post('v1/otp/send')
+  async publicSendAlias(
+    @Req() req: { headers: Record<string, string>; ip?: string },
+    @Body() body: PublicSendBody,
+  ) {
+    return this.publicSend(req, body);
+  }
+
   @Post('v1/otp/sends')
-  async publicSend(@Req() req: { headers: Record<string, string>; ip?: string }, @Body() body: {
-    templateId: string;
-    phoneE164: string;
-    requestId?: string;
-    code?: string;
-  }) {
-    const auth = req.headers.authorization ?? '';
-    const raw = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+  async publicSend(@Req() req: { headers: Record<string, string>; ip?: string }, @Body() body: PublicSendBody) {
+    const started = Date.now();
+    const auth = headerValue(req.headers, 'authorization');
+    const raw = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
     if (!raw.startsWith('orp_live_')) throw httpError(401, 'api key required');
-    const key = await one<{ id: string; merchant_id: string }>(
-      `SELECT id, merchant_id FROM mt_api_keys WHERE key_hash = $1 AND revoked_at IS NULL`,
+    const key = await one<{ id: string; merchant_id: string; revoked_at: string | null }>(
+      `SELECT id, merchant_id, revoked_at FROM mt_api_keys WHERE key_hash = $1`,
       [sha(raw)],
     );
     if (!key) throw httpError(401, 'invalid api key');
-    const started = Date.now();
+    if (key.revoked_at) throw httpError(401, 'api key revoked');
+
+    const phone = toE164(body.to ?? body.phoneE164 ?? body.phone_e164 ?? '');
+    const templateName = (body.template ?? body.templateId ?? body.template_id ?? '').trim();
+    const code = (body.code ?? '').trim();
+    if (!phone) throw httpError(400, 'to must be E.164, for example +628123456789');
+    if (!templateName) throw httpError(400, 'template is required');
+    if (code && !/^\d{4,8}$/.test(code)) throw httpError(400, 'code must be 4 to 8 digits');
+
+    const quota = await assertCanSendOtp(key.merchant_id);
+    const template = await resolveTemplate(key.merchant_id, templateName);
+
     const otpUrl = process.env.OTP_URL ?? 'http://127.0.0.1:8103';
     const res = await fetch(`${otpUrl}/otp/sends`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         merchant_id: key.merchant_id,
-        template_id: body.templateId,
-        phone_e164: body.phoneE164,
-        request_id: body.requestId,
-        code: body.code,
+        template_id: template.id,
+        phone_e164: phone,
+        request_id: body.requestId ?? body.request_id,
+        code: code || undefined,
       }),
     });
-    const json = await res.json();
+    const json = (await res.json().catch(() => ({}))) as {
+      error?: string;
+      request_id?: string;
+      status?: string;
+      phone_e164?: string;
+      cost_idr?: number;
+    };
+    const status = quotaError(json.error) ? 402 : res.status;
     await q(
       `INSERT INTO cm_api_request_logs (merchant_id, api_key_id, method, path, status, ip, duration_ms)
-       VALUES ($1,$2,'POST','/v1/otp/sends',$3,$4,$5)`,
-      [key.merchant_id, key.id, res.status, req.ip ?? null, Date.now() - started],
+       VALUES ($1,$2,'POST','/v1/otp/send',$3,$4,$5)`,
+      [key.merchant_id, key.id, status, req.ip ?? null, Date.now() - started],
     );
     await q(`UPDATE mt_api_keys SET last_used_at = now() WHERE id = $1`, [key.id]);
-    if (!res.ok) throw httpError(res.status, JSON.stringify(json));
-    return json;
+    if (!res.ok) {
+      if (quotaError(json.error)) {
+        throw httpError(402, 'OTP quota is used up for this subscription. Top up in Billing.');
+      }
+      throw httpError(status, json.error || 'otp send failed');
+    }
+    const after = await loadQuota(key.merchant_id);
+    return {
+      request_id: json.request_id,
+      status: json.status,
+      to: json.phone_e164 ?? phone,
+      cost_idr: json.cost_idr ?? 0,
+      quota: after ?? quota,
+    };
   }
+}
+
+type PublicSendBody = {
+  to?: string;
+  phoneE164?: string;
+  phone_e164?: string;
+  template?: string;
+  templateId?: string;
+  template_id?: string;
+  code?: string;
+  requestId?: string;
+  request_id?: string;
+};
+
+const OTP_COST_IDR = 600;
+
+type Quota = {
+  plan: string;
+  trial_left: number;
+  balance_idr: number;
+  otp_left: number;
+  cost_idr: number;
+};
+
+function headerValue(headers: Record<string, string | string[] | undefined>, name: string) {
+  const raw = headers[name] ?? headers[name.toLowerCase()];
+  return (Array.isArray(raw) ? raw[0] : raw) ?? '';
+}
+
+function toE164(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const digits = trimmed.replace(/\D/g, '');
+  let e164 = '';
+  if (trimmed.startsWith('+')) e164 = `+${digits}`;
+  else if (digits.startsWith('62')) e164 = `+${digits}`;
+  else if (digits.startsWith('0')) e164 = `+62${digits.slice(1)}`;
+  else e164 = `+${digits}`;
+  return /^\+[1-9]\d{7,14}$/.test(e164) ? e164 : null;
+}
+
+function quotaError(message?: string) {
+  const text = (message ?? '').toLowerCase();
+  return text.includes('insufficient') || text.includes('quota') || text.includes('balance');
+}
+
+async function loadQuota(merchantId: string): Promise<Quota | null> {
+  const billingUrl = process.env.BILLING_URL ?? 'http://127.0.0.1:8102';
+  const merchantUrl = process.env.MERCHANT_URL ?? 'http://127.0.0.1:8202';
+  const [walletRes, merchantRes] = await Promise.all([
+    fetch(`${billingUrl}/billing/wallets/${merchantId}`),
+    fetch(`${merchantUrl}/merchant/${merchantId}`),
+  ]);
+  const wallet = walletRes.ok
+    ? ((await walletRes.json()) as { remaining_idr?: number; trial_otp_left?: number })
+    : null;
+  const merchant = merchantRes.ok
+    ? ((await merchantRes.json()) as {
+        subscription?: { plan?: string; status?: string; trial_ends_at?: string | null } | null;
+      })
+    : null;
+  const balance = Number(wallet?.remaining_idr ?? 0);
+  const trialLeft = Number(wallet?.trial_otp_left ?? 0);
+  const paidLeft = Math.floor(balance / OTP_COST_IDR);
+  return {
+    plan: merchant?.subscription?.plan ?? 'trial',
+    trial_left: trialLeft,
+    balance_idr: balance,
+    otp_left: trialLeft + paidLeft,
+    cost_idr: OTP_COST_IDR,
+  };
+}
+
+async function assertCanSendOtp(merchantId: string): Promise<Quota> {
+  const merchantUrl = process.env.MERCHANT_URL ?? 'http://127.0.0.1:8202';
+  const merchantRes = await fetch(`${merchantUrl}/merchant/${merchantId}`);
+  if (!merchantRes.ok) throw httpError(402, 'subscription not found');
+  const merchant = (await merchantRes.json()) as {
+    subscription?: { plan?: string; status?: string; trial_ends_at?: string | null } | null;
+  };
+  const sub = merchant.subscription;
+  if (!sub || sub.status === 'canceled') {
+    throw httpError(402, 'subscription is not active');
+  }
+  if (sub.plan === 'broadcast') {
+    throw httpError(402, 'this plan does not include OTP sends');
+  }
+  if (sub.status === 'past_due') {
+    throw httpError(402, 'subscription payment is past due');
+  }
+  const quota = await loadQuota(merchantId);
+  if (!quota || quota.otp_left < 1) {
+    throw httpError(402, 'OTP quota is used up for this subscription. Top up in Billing.');
+  }
+  return quota;
+}
+
+async function resolveTemplate(merchantId: string, nameOrId: string) {
+  const templatesUrl = process.env.TEMPLATES_URL ?? 'http://127.0.0.1:8203';
+  const internalKey = process.env.INTERNAL_KEY ?? '';
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(nameOrId);
+  const url = isUuid
+    ? `${templatesUrl}/internal/templates/${nameOrId}`
+    : `${templatesUrl}/internal/templates/by-name?merchantId=${encodeURIComponent(merchantId)}&name=${encodeURIComponent(nameOrId)}`;
+  const res = await fetch(url, { headers: { 'x-internal-key': internalKey } });
+  const json = (await res.json().catch(() => ({}))) as { id?: string; status?: string; error?: string };
+  if (!res.ok || !json.id) throw httpError(400, json.error || 'template not found');
+  if (json.status && json.status !== 'ACTIVE') throw httpError(400, 'template is not ACTIVE');
+  return { id: json.id };
 }
 
 @Module({ imports: [HealthModule], controllers: [DeveloperController] })
