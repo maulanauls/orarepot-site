@@ -32,6 +32,16 @@ export default function Page() {
   "cost_idr": 600
 }`}
       </DocsCodeBlock>
+      <h2 id="postman">Postman</h2>
+      <p>
+        Import the ready-made collection into Postman, then set collection variable{' '}
+        <code>apiKey</code> to your <code>orp_live_…</code> key from OTP Settings.
+      </p>
+      <p>
+        <a href="/postman/OraRepot-OTP-API.postman_collection.json" download>
+          Download Ora Repot OTP API Postman collection
+        </a>
+      </p>
     </DocsArticle>
   );
 }

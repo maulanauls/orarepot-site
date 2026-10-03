@@ -133,6 +133,36 @@ class DeveloperController implements OnModuleInit {
     return row ?? {};
   }
 
+  @Get('developer/request-logs')
+  async requestLogs(@Query('merchantId') merchantId: string) {
+    if (!merchantId) throw httpError(400, 'merchantId required');
+    return q(
+      `SELECT l.id, l.merchant_id, l.api_key_id, l.method, l.path, l.status,
+              host(l.ip)::text AS ip, l.duration_ms, l.created_at,
+              k.prefix, k.last4
+       FROM cm_api_request_logs l
+       LEFT JOIN mt_api_keys k ON k.id = l.api_key_id
+       WHERE l.merchant_id = $1
+       ORDER BY l.created_at DESC
+       LIMIT 100`,
+      [merchantId],
+    );
+  }
+
+  @Get('developer/webhook-deliveries')
+  async webhookDeliveries(@Query('merchantId') merchantId: string) {
+    if (!merchantId) throw httpError(400, 'merchantId required');
+    return q(
+      `SELECT id, merchant_id, event::text AS event, url, status::text AS status,
+              http_status, created_at
+       FROM cm_webhook_deliveries
+       WHERE merchant_id = $1
+       ORDER BY created_at DESC
+       LIMIT 100`,
+      [merchantId],
+    );
+  }
+
   @Put('developer/webhooks')
   async putWebhook(
     @Headers() headers: Record<string, string>,

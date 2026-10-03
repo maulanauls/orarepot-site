@@ -1,0 +1,304 @@
+{
+  "info": {
+    "_postman_id": "8f3e2c1a-0d4b-4a7e-9c2f-orarepot-otp-api",
+    "name": "Ora Repot OTP API",
+    "description": "Public OTP API for Ora Repot merchants.\n\nDocs: https://orarepot.com/docs/otp/send\n\nAuth: Authorization: Bearer orp_live_...\nHost: https://api.orarepot.com\n\nCost: Rp 600 per successful OTP (or free trial quota when available).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://api.orarepot.com"
+    },
+    {
+      "key": "apiKey",
+      "value": "orp_live_xxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "key": "to",
+      "value": "+628123456789"
+    },
+    {
+      "key": "template",
+      "value": "otp_merchant_id"
+    },
+    {
+      "key": "code",
+      "value": "482193"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{apiKey}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "OTP",
+      "description": "Sending & receiving — https://orarepot.com/docs/otp/send",
+      "item": [
+        {
+          "name": "Send OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"to\": \"{{to}}\",\n  \"template\": \"{{template}}\",\n  \"code\": \"{{code}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/otp/send",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "otp", "send"]
+            },
+            "description": "POST /v1/otp/send\n\n- `to` must be E.164 (example: +628123456789)\n- `template` must be an AUTHENTICATION template that is ACTIVE\n- `code` is optional; Ora Repot can generate 6 digits when omitted\n- Cost is Rp 600 from deposit, or trial OTP quota when available\n\nDocs: https://orarepot.com/docs/otp/send"
+          },
+          "response": [
+            {
+              "name": "Success",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{apiKey}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"to\": \"+628123456789\",\n  \"template\": \"otp_merchant_id\",\n  \"code\": \"482193\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/v1/otp/send",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "otp", "send"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"request_id\": \"req_01J…\",\n  \"status\": \"success\",\n  \"to\": \"+628123456789\",\n  \"cost_idr\": 600,\n  \"quota\": {\n    \"plan\": \"trial\",\n    \"trial_left\": 2,\n    \"balance_idr\": 0,\n    \"otp_left\": 2,\n    \"cost_idr\": 600\n  }\n}"
+            },
+            {
+              "name": "Invalid phone",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"to\": \"085246337025\",\n  \"template\": \"otp_merchant_id\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/v1/otp/send",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "otp", "send"]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"error\": \"to must be E.164, for example +628123456789\"\n}"
+            },
+            {
+              "name": "Unauthorized / revoked key",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"to\": \"+628123456789\",\n  \"template\": \"otp_merchant_id\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/v1/otp/send",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "otp", "send"]
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"error\": \"api key revoked\"\n}"
+            },
+            {
+              "name": "Quota / insufficient balance",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"to\": \"+628123456789\",\n  \"template\": \"otp_merchant_id\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/v1/otp/send",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "otp", "send"]
+                }
+              },
+              "status": "Payment Required",
+              "code": 402,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"error\": \"OTP quota is used up for this subscription. Top up in Billing.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Send OTP (auto-generate code)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"to\": \"{{to}}\",\n  \"template\": \"{{template}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/otp/send",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "otp", "send"]
+            },
+            "description": "Same endpoint without `code`. Ora Repot generates a 6-digit OTP for template placeholder {{1}}."
+          },
+          "response": []
+        },
+        {
+          "name": "Send OTP (English template)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"to\": \"{{to}}\",\n  \"template\": \"otp_merchant\",\n  \"code\": \"{{code}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/otp/send",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "otp", "send"]
+            },
+            "description": "Platform English template name: `otp_merchant`.\nIndonesian template name: `otp_merchant_id`."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Examples from docs",
+      "description": "Copied from Quickstart / Send OTP docs.",
+      "item": [
+        {
+          "name": "Quickstart example",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"to\": \"+628123456789\",\n  \"template\": \"otp_login\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/otp/send",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "otp", "send"]
+            },
+            "description": "Example from https://orarepot.com/docs/quickstart\n\nReplace `otp_login` with an ACTIVE template on your merchant (for example `otp_merchant_id`)."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

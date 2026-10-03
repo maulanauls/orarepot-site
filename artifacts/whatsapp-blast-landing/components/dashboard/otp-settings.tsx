@@ -43,7 +43,9 @@ import {
 import {
   createApiKeyApi,
   fetchApiKeys,
+  fetchApiRequestLogs,
   fetchWebhook,
+  fetchWebhookDeliveries,
   revokeApiKeyApi,
   saveWebhookApi,
 } from '@/lib/orarepot-api';
@@ -95,8 +97,16 @@ export function OtpSettingsPage() {
     } catch {
       /* webhook is optional for the keys tab */
     }
-    setDeliveries([]);
-    setRequests([]);
+    try {
+      setDeliveries(await fetchWebhookDeliveries());
+    } catch {
+      setDeliveries([]);
+    }
+    try {
+      setRequests(await fetchApiRequestLogs());
+    } catch {
+      setRequests([]);
+    }
   }
 
   useEffect(() => {
@@ -390,28 +400,32 @@ export function OtpSettingsPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
-              {requests.map((row) => (
-                <div
-                  key={row.id}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border px-4 py-3"
-                >
-                  <div>
-                    <p className="text-sm font-medium m-0">
-                      {row.method} {row.path}
-                    </p>
-                    <p className="text-xs text-muted-foreground m-0">
-                      {row.keyPrefix} · {formatWhen(row.createdAt)}
-                    </p>
-                  </div>
-                  <Badge
-                    variant={row.status >= 400 ? 'destructive' : 'success'}
-                    appearance="light"
-                    size="sm"
+              {requests.length === 0 ? (
+                <p className="text-sm text-muted-foreground m-0">{t('otp.devNoRequests')}</p>
+              ) : (
+                requests.map((row) => (
+                  <div
+                    key={row.id}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border px-4 py-3"
                   >
-                    {row.status}
-                  </Badge>
-                </div>
-              ))}
+                    <div>
+                      <p className="text-sm font-medium m-0">
+                        {row.method} {row.path}
+                      </p>
+                      <p className="text-xs text-muted-foreground m-0">
+                        {row.keyPrefix} · {formatWhen(row.createdAt)}
+                      </p>
+                    </div>
+                    <Badge
+                      variant={row.status >= 400 ? 'destructive' : 'success'}
+                      appearance="light"
+                      size="sm"
+                    >
+                      {row.status}
+                    </Badge>
+                  </div>
+                ))
+              )}
             </CardContent>
           </Card>
         </TabsContent>

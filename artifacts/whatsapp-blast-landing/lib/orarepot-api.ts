@@ -20,7 +20,12 @@ import {
 export { authTemplateBody };
 import type { TeamMember, MemberRole, MemberStatus } from '@/lib/members';
 import type { OtpLog } from '@/lib/otp-logs';
-import type { OtpApiKey, OtpWebhook } from '@/lib/otp-developer';
+import type {
+  OtpApiKey,
+  OtpApiRequestLog,
+  OtpWebhook,
+  OtpWebhookDelivery,
+} from '@/lib/otp-developer';
 import type { BillingAccount, Invoice } from '@/lib/billing';
 import { LOCALE_STORAGE_KEY } from '@/lib/i18n/config';
 
@@ -563,6 +568,51 @@ export async function saveWebhookApi(url: string, enabled: boolean) {
       body: JSON.stringify({ merchantId, url, enabled }),
     },
   );
+}
+
+export async function fetchApiRequestLogs(): Promise<OtpApiRequestLog[]> {
+  const merchantId = await resolveMerchantId();
+  const rows = await api<
+    {
+      id: string;
+      method: string;
+      path: string;
+      status: number;
+      created_at: string;
+      prefix?: string | null;
+      last4?: string | null;
+    }[]
+  >(`/developer/request-logs?merchantId=${encodeURIComponent(merchantId)}`);
+  return (rows ?? []).map((row) => ({
+    id: row.id,
+    method: row.method,
+    path: row.path,
+    status: Number(row.status),
+    createdAt: row.created_at,
+    keyPrefix: row.prefix ? `${row.prefix}…${row.last4 ?? ''}` : '—',
+  }));
+}
+
+export async function fetchWebhookDeliveries(): Promise<OtpWebhookDelivery[]> {
+  const merchantId = await resolveMerchantId();
+  const rows = await api<
+    {
+      id: string;
+      event: string;
+      url: string;
+      status: string;
+      http_status?: number | null;
+      created_at: string;
+    }[]
+  >(`/developer/webhook-deliveries?merchantId=${encodeURIComponent(merchantId)}`);
+  return (rows ?? []).map((row) => ({
+    id: row.id,
+    event: (row.event === 'otp.failed' ? 'otp.failed' : 'otp.sent') as OtpWebhookDelivery['event'],
+    url: row.url,
+    status: row.status === 'success' ? 'Success' : 'Failed',
+    code: Number(row.http_status ?? 0),
+    createdAt: row.created_at,
+  }));
 }
 
 export type WabaRow = {
