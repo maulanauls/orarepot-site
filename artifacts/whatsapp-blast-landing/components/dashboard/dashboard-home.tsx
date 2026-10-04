@@ -26,11 +26,14 @@ import {
 } from '@/components/ui/card';
 import { formatIdr, remainingBalance, type BillingAccount } from '@/lib/billing';
 import {
+  activateMerchant,
+  fetchAllowedMerchants,
   fetchMembers,
   fetchOtpSends,
   fetchTemplates,
   fetchWallet,
   mapOtpLog,
+  type AllowedMerchant,
   type OtpSendRow,
 } from '@/lib/orarepot-api';
 import type { OtpTemplate } from '@/lib/otp-templates';
@@ -41,7 +44,7 @@ import {
   otpUnitsLeft,
   sentCount,
 } from '@/lib/otp-dashboard';
-import { getStoredUser } from '@/lib/session';
+import { getMerchantId, getStoredUser } from '@/lib/session';
 
 function formatId(n: number) {
   return n.toLocaleString('id-ID');
@@ -53,6 +56,8 @@ export function DashboardHomePage() {
   const [templates, setTemplates] = useState<OtpTemplate[]>([]);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [wallet, setWallet] = useState<BillingAccount | null>(null);
+  const [merchants, setMerchants] = useState<AllowedMerchant[]>([]);
+  const [activeMerchantId, setActiveMerchantId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [greet, setGreet] = useState('Merchant');
   const bgUrl = toAbsoluteUrl('/media/images/2600x1600/bg-3.png');
@@ -60,16 +65,19 @@ export function DashboardHomePage() {
   useEffect(() => {
     const user = getStoredUser();
     setGreet(user?.full_name || user?.email || 'Merchant');
+    setActiveMerchantId(getMerchantId());
     Promise.all([
       fetchOtpSends().catch(() => [] as OtpSendRow[]),
       fetchTemplates().catch(() => [] as OtpTemplate[]),
       fetchMembers().catch(() => [] as TeamMember[]),
       fetchWallet().catch(() => null),
-    ]).then(([rows, tpls, team, account]) => {
+      fetchAllowedMerchants().catch(() => [] as AllowedMerchant[]),
+    ]).then(([rows, tpls, team, account, allowed]) => {
       setSends(rows);
       setTemplates(tpls);
       setMembers(team);
       setWallet(account);
+      setMerchants(allowed);
       setLoaded(true);
     });
   }, []);
@@ -89,6 +97,14 @@ export function DashboardHomePage() {
     mapOtpLog(row, names.get(row.template_id) ?? row.template_id),
   );
   const activeTemplates = templates.filter((item) => item.status === 'ACTIVE').length;
+  const activeMerchant =
+    merchants.find((row) => row.merchantId === activeMerchantId) ?? merchants[0];
+
+  function openMerchant(merchantId: string) {
+    if (merchantId === getMerchantId()) return;
+    activateMerchant(merchantId);
+    window.location.assign('/dashboard');
+  }
 
   const metrics = [
     { label: t('otp.chartTitle'), value: formatId(sent), icon: Send },
@@ -175,9 +191,40 @@ export function DashboardHomePage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>{t('dash.workspace')}</CardTitle>
+              <CardTitle>{t('dash.yourMerchants')}</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4">
+              {merchants.length === 0 ? (
+                <p className="text-sm text-muted-foreground m-0">{t('header.merchantName')}</p>
+              ) : (
+                <div className="grid gap-2">
+                  {merchants.map((row) => {
+                    const selected = row.merchantId === activeMerchant?.merchantId;
+                    return (
+                      <button
+                        key={row.merchantId}
+                        type="button"
+                        onClick={() => openMerchant(row.merchantId)}
+                        className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 text-start hover:bg-accent"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-medium">
+                            {row.displayName}
+                          </span>
+                          <span className="block text-xs text-muted-foreground">
+                            {row.role === 'owner'
+                              ? t('members.roleOwner')
+                              : row.role === 'admin'
+                                ? t('members.roleAdmin')
+                                : t('members.roleAgent')}
+                          </span>
+                        </span>
+                        {selected ? <Badge size="sm" variant="success" appearance="light">{t('dash.activeMerchant')}</Badge> : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2 text-sm">
                   <LayoutTemplate className="size-4 text-muted-foreground" />

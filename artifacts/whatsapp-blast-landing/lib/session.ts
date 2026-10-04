@@ -29,6 +29,13 @@ export function getMerchantId(): string | null {
   return localStorage.getItem(AUTH_MERCHANT_KEY);
 }
 
+export function setMerchantId(merchantId: string) {
+  const token = getToken();
+  const user = getStoredUser();
+  if (!token || !user) return;
+  persistSession({ token, user, merchantId });
+}
+
 export function persistSession(input: {
   token: string;
   user: AuthUser;

@@ -103,6 +103,7 @@ export function MembersPage() {
   const [fullName, setFullName] = useState('');
   const [role, setRole] = useState<Exclude<MemberRole, 'owner'>>('agent');
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
 
   useEffect(() => {
     fetchMembers()
@@ -129,6 +130,7 @@ export function MembersPage() {
     if (!email.trim()) return;
     setInviteErr('');
     setInviteMsg('');
+    setSending(true);
     try {
       await inviteMemberApi({
         fullName,
@@ -144,6 +146,8 @@ export function MembersPage() {
       setInviteMsg(t('members.inviteSent'));
     } catch (err) {
       setInviteErr(err instanceof Error ? err.message : t('members.inviteError'));
+    } finally {
+      setSending(false);
     }
   }
 
@@ -366,8 +370,8 @@ export function MembersPage() {
             <Button variant="outline" onClick={() => setInviteOpen(false)}>
               {t('common.cancel')}
             </Button>
-            <Button onClick={onInvite} disabled={!email.trim()}>
-              {t('members.inviteSend')}
+            <Button onClick={onInvite} disabled={!email.trim() || sending}>
+              {sending ? t('common.loading') : t('members.inviteSend')}
             </Button>
           </DialogFooter>
         </DialogContent>

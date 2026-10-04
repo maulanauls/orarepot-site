@@ -4,6 +4,7 @@ type InviteEmailInput = {
   toEmail: string;
   toName?: string | null;
   role: string;
+  merchantName?: string | null;
   acceptUrl: string;
   declineUrl: string;
   locale?: string | null;
@@ -39,37 +40,40 @@ function copy(
   locale: InviteLocale,
   role: string,
   name: string,
+  merchantName: string,
   acceptUrl: string,
   declineUrl: string,
 ) {
   if (locale === 'en') {
     const roleLabel = role === 'admin' ? 'Admin' : 'Agent';
     return {
-      subject: `${roleLabel} invitation — Ora Repot`,
+      subject: `Invitation to ${merchantName} — Ora Repot`,
       text: [
         `Hello ${name},`,
         '',
-        `You are invited to join an Ora Repot workspace as ${roleLabel}.`,
+        `You are invited to join ${merchantName} on Ora Repot as ${roleLabel}.`,
+        'Accept the invitation to open that merchant on your dashboard.',
         `Accept: ${acceptUrl}`,
         `Decline: ${declineUrl}`,
         '',
-        'Links are valid for 7 days. If you do not have an account yet, sign up first, then accept.',
+        'Links are valid for 7 days. Sign in with this email address, then accept.',
       ].join('\n'),
       html: `
         <div style="font-family:Inter,system-ui,sans-serif;max-width:560px;margin:0 auto;color:#111">
           <p>Hello ${escapeHtml(name)},</p>
-          <p>You are invited to join an <strong>Ora Repot</strong> workspace as <strong>${roleLabel}</strong>.</p>
+          <p>You are invited to join <strong>${escapeHtml(merchantName)}</strong> on <strong>Ora Repot</strong> as <strong>${roleLabel}</strong>.</p>
+          <p>Accept to see this merchant on your dashboard.</p>
           <p>
             <a href="${escapeHtml(acceptUrl)}"
                style="display:inline-block;background:#111;color:#fff;padding:12px 18px;border-radius:8px;text-decoration:none;margin-right:8px">
-              Accept
+              Accept invitation
             </a>
             <a href="${escapeHtml(declineUrl)}"
                style="display:inline-block;background:#fff;color:#111;padding:12px 18px;border-radius:8px;text-decoration:none;border:1px solid #ccc">
               Decline
             </a>
           </p>
-          <p style="color:#555;font-size:13px">Links are valid for 7 days. Until you accept, you will not be an active team member.</p>
+          <p style="color:#555;font-size:13px">Links are valid for 7 days. Sign in with this email, then accept. Until you accept, you will not see this merchant.</p>
         </div>
       `,
     };
@@ -77,31 +81,33 @@ function copy(
 
   const roleLabel = role === 'admin' ? 'Admin' : 'Agent';
   return {
-    subject: `Undangan ${roleLabel} — Ora Repot`,
+    subject: `Undangan ke ${merchantName} — Ora Repot`,
     text: [
       `Halo ${name},`,
       '',
-      `Anda diundang bergabung ke workspace Ora Repot sebagai ${roleLabel}.`,
+      `Anda diundang bergabung ke merchant ${merchantName} di Ora Repot sebagai ${roleLabel}.`,
+      'Terima undangan agar merchant ini muncul di dashboard Anda.',
       `Terima: ${acceptUrl}`,
       `Tolak: ${declineUrl}`,
       '',
-      'Tautan berlaku 7 hari. Jika belum punya akun, daftar dulu lalu terima undangan.',
+      'Tautan berlaku 7 hari. Masuk dengan email ini, lalu terima undangan.',
     ].join('\n'),
     html: `
       <div style="font-family:Inter,system-ui,sans-serif;max-width:560px;margin:0 auto;color:#111">
         <p>Halo ${escapeHtml(name)},</p>
-        <p>Anda diundang bergabung ke workspace <strong>Ora Repot</strong> sebagai <strong>${roleLabel}</strong>.</p>
+        <p>Anda diundang bergabung ke merchant <strong>${escapeHtml(merchantName)}</strong> di <strong>Ora Repot</strong> sebagai <strong>${roleLabel}</strong>.</p>
+        <p>Terima undangan agar merchant ini muncul di dashboard Anda.</p>
         <p>
           <a href="${escapeHtml(acceptUrl)}"
              style="display:inline-block;background:#111;color:#fff;padding:12px 18px;border-radius:8px;text-decoration:none;margin-right:8px">
-            Terima
+            Terima undangan
           </a>
           <a href="${escapeHtml(declineUrl)}"
              style="display:inline-block;background:#fff;color:#111;padding:12px 18px;border-radius:8px;text-decoration:none;border:1px solid #ccc">
             Tolak
           </a>
         </p>
-        <p style="color:#555;font-size:13px">Tautan berlaku 7 hari. Sebelum diterima, Anda belum menjadi anggota aktif.</p>
+        <p style="color:#555;font-size:13px">Tautan berlaku 7 hari. Masuk dengan email ini, lalu terima. Sebelum diterima, merchant ini belum muncul di dashboard.</p>
       </div>
     `,
   };
@@ -113,8 +119,9 @@ export async function sendMemberInviteEmail(input: InviteEmailInput) {
   const fromEmail = process.env.MAILJET_FROM_EMAIL?.trim() || 'hello@orarepot.com';
   const fromName = process.env.MAILJET_FROM_NAME?.trim() || 'Ora Repot';
   const name = input.toName?.trim() || input.toEmail;
+  const merchantName = input.merchantName?.trim() || 'Ora Repot';
   const locale = inviteLocale(input.locale);
-  const message = copy(locale, input.role, name, input.acceptUrl, input.declineUrl);
+  const message = copy(locale, input.role, name, merchantName, input.acceptUrl, input.declineUrl);
   const auth = Buffer.from(`${apiKey}:${secret}`).toString('base64');
 
   const res = await fetch('https://api.mailjet.com/v3.1/send', {

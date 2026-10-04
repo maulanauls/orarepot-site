@@ -14,6 +14,10 @@ import {
 import { createHash, randomBytes } from 'crypto';
 import { bootstrap, HealthModule } from '../common/nest';
 import { httpError, insertOutbox, one, q, requireUser } from '../common/db';
+
+function headerValue(headers: Record<string, string>, name: string) {
+  return (headers[name] ?? headers[name.toLowerCase()] ?? '').trim();
+}
 import { appPublicUrl, sendMemberInviteEmail } from '../common/mailjet';
 
 @Controller()
@@ -98,6 +102,7 @@ class MembersController {
       role?: 'admin' | 'agent';
       teamId?: string | null;
       locale?: string;
+      merchantName?: string;
     },
   ) {
     const actor = requireUser(headers);
@@ -139,6 +144,7 @@ class MembersController {
         toEmail: body.email.toLowerCase(),
         toName: body.fullName,
         role,
+        merchantName: body.merchantName,
         acceptUrl: baseInviteUrl,
         declineUrl: `${baseInviteUrl}&action=decline`,
         locale: body.locale,
@@ -169,12 +175,25 @@ class MembersController {
   ) {
     const userId = requireUser(headers);
     const tokenHash = createHash('sha256').update(body.token ?? '').digest('hex');
-    const invite = await one<{ member_id: string; merchant_id: string; status: string }>(
-      `SELECT member_id, merchant_id, status::text AS status
+    const invite = await one<{
+      member_id: string;
+      merchant_id: string;
+      email: string;
+      status: string;
+      expires_at: string;
+    }>(
+      `SELECT member_id, merchant_id, email::text AS email, status::text AS status, expires_at
        FROM tx_member_invites WHERE id = $1 AND token_hash = $2`,
       [id, tokenHash],
     );
     if (!invite || invite.status !== 'pending') throw httpError(400, 'invalid invite');
+    if (new Date(invite.expires_at).getTime() < Date.now()) {
+      throw httpError(400, 'invalid invite');
+    }
+    const actorEmail = headerValue(headers, 'x-user-email').toLowerCase();
+    if (actorEmail && actorEmail !== invite.email.toLowerCase()) {
+      throw httpError(403, 'Masuk dengan email yang diundang');
+    }
     await q(
       `UPDATE tx_member_invites SET status = 'accepted', accepted_at = now() WHERE id = $1`,
       [id],
@@ -188,7 +207,7 @@ class MembersController {
       userId,
       merchantId: invite.merchant_id,
     });
-    return { ok: true, memberId: invite.member_id };
+    return { ok: true, memberId: invite.member_id, merchantId: invite.merchant_id };
   }
 
   /** Public (token-based): invitee declines — remove pending member row from team list. */

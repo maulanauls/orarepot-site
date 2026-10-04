@@ -4,6 +4,7 @@ import {
   getMerchantId,
   getStoredUser,
   getToken,
+  setMerchantId,
   type AuthUser,
 } from '@/lib/session';
 import {
@@ -435,6 +436,36 @@ export async function fetchMembers(): Promise<TeamMember[]> {
   return (rows ?? []).map(mapMember);
 }
 
+export type AllowedMerchant = {
+  merchantId: string;
+  displayName: string;
+  role: string;
+};
+
+export async function fetchAllowedMerchants(): Promise<AllowedMerchant[]> {
+  const rows = await api<MemberRow[]>('/members/me');
+  return Promise.all(
+    (rows ?? []).map(async (row) => {
+      let displayName = 'Merchant';
+      try {
+        const merchant = await api<{ display_name?: string }>(`/merchant/${row.merchant_id}`);
+        if (merchant.display_name?.trim()) displayName = merchant.display_name.trim();
+      } catch {
+        /* name is optional; membership still counts */
+      }
+      return {
+        merchantId: row.merchant_id,
+        displayName,
+        role: row.role || 'agent',
+      };
+    }),
+  );
+}
+
+export function activateMerchant(merchantId: string) {
+  setMerchantId(merchantId);
+}
+
 export async function inviteMemberApi(input: {
   email: string;
   fullName: string;
@@ -447,7 +478,14 @@ export async function inviteMemberApi(input: {
     (typeof window !== 'undefined' && localStorage.getItem(LOCALE_STORAGE_KEY) === 'en'
       ? 'en'
       : 'id');
-  const row = await api<MemberRow & { memberId?: string }>('/members/invites', {
+  let merchantName = '';
+  try {
+    const merchant = await api<{ display_name?: string }>(`/merchant/${merchantId}`);
+    merchantName = merchant.display_name?.trim() ?? '';
+  } catch {
+    /* invite still sends without a display name */
+  }
+  const row = await api<MemberRow & { memberId?: string; emailed?: boolean }>('/members/invites', {
     method: 'POST',
     body: JSON.stringify({
       merchantId,
@@ -455,6 +493,7 @@ export async function inviteMemberApi(input: {
       fullName: input.fullName,
       role: input.role,
       locale,
+      merchantName: merchantName || undefined,
     }),
   });
   return {
@@ -468,10 +507,13 @@ export async function inviteMemberApi(input: {
 }
 
 export async function acceptInviteApi(id: string, token: string) {
-  return api<{ ok: boolean; memberId: string }>(`/members/invites/${id}/accept`, {
-    method: 'POST',
-    body: JSON.stringify({ token }),
-  });
+  return api<{ ok: boolean; memberId: string; merchantId: string }>(
+    `/members/invites/${id}/accept`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    },
+  );
 }
 
 export async function declineInviteApi(id: string, token: string) {

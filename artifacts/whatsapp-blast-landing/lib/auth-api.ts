@@ -46,10 +46,7 @@ export function pendingInviteHref(): string | null {
 
 async function finishAuth(auth: AuthResponse, displayName?: string) {
   persistSession({ token: auth.token, user: auth.user });
-  if (peekPendingInvite()) {
-    await resolveMerchantId().catch(() => undefined);
-    return auth;
-  }
+  if (peekPendingInvite()) return auth;
   await bootstrapWorkspace(auth.user, displayName).catch(async () => {
     await resolveMerchantId();
   });
@@ -97,10 +94,7 @@ export async function loginUser(input: {
   if (!res.ok) throw new Error(await readError(res));
   const auth = (await res.json()) as AuthResponse;
   persistSession({ token: auth.token, user: auth.user });
-  if (peekPendingInvite()) {
-    await resolveMerchantId().catch(() => undefined);
-    return auth;
-  }
+  if (peekPendingInvite()) return auth;
   await resolveMerchantId();
   return auth;
 }

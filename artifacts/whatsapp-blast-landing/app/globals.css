@@ -3066,6 +3066,45 @@ a.auth-submit {
 }
 .reg-actions .auth-submit { width: auto; flex: 1; min-width: 160px; }
 .reg-actions .button-ghost { flex: 0 0 auto; }
+.invite-actions {
+  align-items: center;
+}
+.invite-actions .auth-submit,
+.invite-actions .button-ghost {
+  margin-top: 0;
+  box-sizing: border-box;
+  height: 40px;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.invite-actions .button-ghost {
+  flex: 0 0 120px;
+  width: 120px;
+  justify-content: center;
+}
+.invite-actions .invite-signup,
+.invite-actions .invite-decline {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.invite-actions .invite-decline {
+  color: #ffc7c2;
+  border-color: rgba(255, 138, 128, 0.7);
+  background: rgba(255, 92, 80, 0.12);
+}
+.invite-actions .invite-decline:hover:not(:disabled) {
+  color: #ffe4e1;
+  border-color: rgba(255, 160, 150, 0.9);
+  background: rgba(255, 92, 80, 0.22);
+}
+.invite-actions .button-ghost:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
 .reg-pay-summary {
   display: grid;
   gap: 10px;

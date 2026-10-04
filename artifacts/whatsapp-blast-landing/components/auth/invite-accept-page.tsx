@@ -8,9 +8,8 @@ import { LanguageSwitcher } from '@/components/i18n/language-switcher';
 import { useT } from '@/components/i18n/locale-provider';
 import { acceptInviteApi, declineInviteApi } from '@/lib/orarepot-api';
 import { savePendingInvite, takePendingInvite } from '@/lib/pending-invite';
-import { getToken } from '@/lib/session';
+import { getStoredUser, getToken, persistSession } from '@/lib/session';
 import { AuthSnackbar } from '@/components/auth/auth-snackbar';
-import { Button } from '@/components/ui/button';
 
 type Status = 'ready' | 'accepting' | 'declining' | 'ok' | 'declined' | 'error';
 
@@ -35,7 +34,8 @@ export function InviteAcceptPage() {
       setStatus('declined');
     } catch (err) {
       setStatus('error');
-      setError(err instanceof Error ? err.message : t('auth.inviteInvalid'));
+      const message = err instanceof Error ? err.message : t('auth.inviteInvalid');
+      setError(message.toLowerCase().includes('diundang') ? t('auth.inviteWrongEmail') : message);
     }
   }, [id, token, t]);
 
@@ -62,7 +62,12 @@ export function InviteAcceptPage() {
     setStatus('accepting');
     setError('');
     try {
-      await acceptInviteApi(id, token);
+      const accepted = await acceptInviteApi(id, token);
+      const sessionToken = getToken();
+      const user = getStoredUser();
+      if (sessionToken && user && accepted.merchantId) {
+        persistSession({ token: sessionToken, user, merchantId: accepted.merchantId });
+      }
       takePendingInvite();
       setStatus('ok');
       window.setTimeout(() => {
@@ -70,7 +75,8 @@ export function InviteAcceptPage() {
       }, 800);
     } catch (err) {
       setStatus('error');
-      setError(err instanceof Error ? err.message : t('auth.inviteInvalid'));
+      const message = err instanceof Error ? err.message : t('auth.inviteInvalid');
+      setError(message.toLowerCase().includes('diundang') ? t('auth.inviteWrongEmail') : message);
     }
   }
 
@@ -101,12 +107,12 @@ export function InviteAcceptPage() {
               <p className="reg-lead">
                 {loggedIn ? t('auth.inviteChoose') : t('auth.inviteNeedAuth')}
               </p>
-              <div className="reg-actions" style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+              <div className="reg-actions invite-actions">
                 {loggedIn ? (
-                  <Button onClick={onAccept} disabled={busy}>
+                  <button type="button" className="auth-submit" onClick={onAccept} disabled={busy}>
                     {status === 'accepting' ? t('common.loading') : t('auth.inviteAccept')}
                     <ArrowRight size={16} />
-                  </Button>
+                  </button>
                 ) : (
                   <>
                     <Link
@@ -118,16 +124,16 @@ export function InviteAcceptPage() {
                     </Link>
                     <Link
                       href="/register/diorarepot"
-                      className="button-ghost"
+                      className="button-ghost invite-signup"
                       onClick={() => savePendingInvite({ id, token })}
                     >
                       {t('common.signUp')}
                     </Link>
                   </>
                 )}
-                <Button variant="outline" onClick={runDecline} disabled={busy}>
+                <button type="button" className="button-ghost invite-decline" onClick={runDecline} disabled={busy}>
                   {status === 'declining' ? t('common.loading') : t('auth.inviteDecline')}
-                </Button>
+                </button>
               </div>
             </>
           ) : null}
