@@ -44,6 +44,7 @@ function copy(
   acceptUrl: string,
   declineUrl: string,
 ) {
+  const signupUrl = `${appPublicUrl()}/register/diorarepot`;
   if (locale === 'en') {
     const roleLabel = role === 'admin' ? 'Admin' : 'Agent';
     return {
@@ -52,17 +53,19 @@ function copy(
         `Hello ${name},`,
         '',
         `You are invited to join ${merchantName} on Ora Repot as ${roleLabel}.`,
-        'Accept the invitation to open that merchant on your dashboard.',
+        'To accept, you need an Ora Repot account that uses this same email address.',
+        'If you do not have one yet, create an account first, then open the accept link and sign in with this email.',
+        `Create an account: ${signupUrl}`,
         `Accept: ${acceptUrl}`,
         `Decline: ${declineUrl}`,
         '',
-        'Links are valid for 7 days. Sign in with this email address, then accept.',
+        'Links are valid for 7 days. Until you accept, this merchant will not appear on your dashboard.',
       ].join('\n'),
       html: `
         <div style="font-family:Inter,system-ui,sans-serif;max-width:560px;margin:0 auto;color:#111">
           <p>Hello ${escapeHtml(name)},</p>
           <p>You are invited to join <strong>${escapeHtml(merchantName)}</strong> on <strong>Ora Repot</strong> as <strong>${roleLabel}</strong>.</p>
-          <p>Accept to see this merchant on your dashboard.</p>
+          <p>To accept, you need an Ora Repot account that uses <strong>this same email address</strong>. If you do not have one yet, <a href="${escapeHtml(signupUrl)}">create an account</a> first, then open the invitation and sign in with this email.</p>
           <p>
             <a href="${escapeHtml(acceptUrl)}"
                style="display:inline-block;background:#111;color:#fff;padding:12px 18px;border-radius:8px;text-decoration:none;margin-right:8px">
@@ -73,7 +76,7 @@ function copy(
               Decline
             </a>
           </p>
-          <p style="color:#555;font-size:13px">Links are valid for 7 days. Sign in with this email, then accept. Until you accept, you will not see this merchant.</p>
+          <p style="color:#555;font-size:13px">Links are valid for 7 days. Until you accept, this merchant will not appear on your dashboard.</p>
         </div>
       `,
     };
@@ -86,17 +89,19 @@ function copy(
       `Halo ${name},`,
       '',
       `Anda diundang bergabung ke merchant ${merchantName} di Ora Repot sebagai ${roleLabel}.`,
-      'Terima undangan agar merchant ini muncul di dashboard Anda.',
+      'Untuk menerima undangan, Anda harus punya akun Ora Repot dengan email yang sama.',
+      'Kalau belum punya akun, daftar dulu, lalu buka tautan terima dan masuk dengan email ini.',
+      `Daftar: ${signupUrl}`,
       `Terima: ${acceptUrl}`,
       `Tolak: ${declineUrl}`,
       '',
-      'Tautan berlaku 7 hari. Masuk dengan email ini, lalu terima undangan.',
+      'Tautan berlaku 7 hari. Sebelum diterima, merchant ini belum muncul di dashboard.',
     ].join('\n'),
     html: `
       <div style="font-family:Inter,system-ui,sans-serif;max-width:560px;margin:0 auto;color:#111">
         <p>Halo ${escapeHtml(name)},</p>
         <p>Anda diundang bergabung ke merchant <strong>${escapeHtml(merchantName)}</strong> di <strong>Ora Repot</strong> sebagai <strong>${roleLabel}</strong>.</p>
-        <p>Terima undangan agar merchant ini muncul di dashboard Anda.</p>
+        <p>Untuk menerima undangan, Anda harus punya akun Ora Repot dengan <strong>email yang sama</strong>. Kalau belum punya, <a href="${escapeHtml(signupUrl)}">daftar dulu</a>, lalu buka undangan ini dan masuk dengan email tersebut.</p>
         <p>
           <a href="${escapeHtml(acceptUrl)}"
              style="display:inline-block;background:#111;color:#fff;padding:12px 18px;border-radius:8px;text-decoration:none;margin-right:8px">
@@ -107,7 +112,7 @@ function copy(
             Tolak
           </a>
         </p>
-        <p style="color:#555;font-size:13px">Tautan berlaku 7 hari. Masuk dengan email ini, lalu terima. Sebelum diterima, merchant ini belum muncul di dashboard.</p>
+        <p style="color:#555;font-size:13px">Tautan berlaku 7 hari. Sebelum diterima, merchant ini belum muncul di dashboard.</p>
       </div>
     `,
   };

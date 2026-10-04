@@ -82,7 +82,33 @@ type MemberRow = {
   team_id?: string | null;
 };
 
-export async function bootstrapWorkspace(user: AuthUser, displayName?: string) {
+let workspaceBootstrap: Promise<string> | null = null;
+
+async function existingMerchantId(): Promise<string | null> {
+  const memberships = await api<MemberRow[]>('/members/me').catch(() => [] as MemberRow[]);
+  const active = memberships.find((row) => row.status === 'active' && row.merchant_id);
+  return active?.merchant_id ?? null;
+}
+
+export function bootstrapWorkspace(user: AuthUser, displayName?: string) {
+  if (!workspaceBootstrap) {
+    workspaceBootstrap = createWorkspace(user, displayName).finally(() => {
+      workspaceBootstrap = null;
+    });
+  }
+  return workspaceBootstrap;
+}
+
+async function createWorkspace(user: AuthUser, displayName?: string) {
+  const already = await existingMerchantId();
+  if (already) {
+    persistSession({
+      token: getToken() ?? '',
+      user,
+      merchantId: already,
+    });
+    return already;
+  }
   const name = displayName?.trim() || user.full_name || user.email.split('@')[0];
   const merchant = await api<MerchantRow>('/merchant', {
     method: 'POST',
@@ -444,8 +470,14 @@ export type AllowedMerchant = {
 
 export async function fetchAllowedMerchants(): Promise<AllowedMerchant[]> {
   const rows = await api<MemberRow[]>('/members/me');
+  const seen = new Set<string>();
+  const unique = (rows ?? []).filter((row) => {
+    if (!row.merchant_id || seen.has(row.merchant_id)) return false;
+    seen.add(row.merchant_id);
+    return true;
+  });
   return Promise.all(
-    (rows ?? []).map(async (row) => {
+    unique.map(async (row) => {
       let displayName = 'Merchant';
       try {
         const merchant = await api<{ display_name?: string }>(`/merchant/${row.merchant_id}`);
