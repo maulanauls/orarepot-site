@@ -1,0 +1,90 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-mailjet-orarepot-affiliate",
+    "name": "Ora Repot Mailjet — Affiliate",
+    "description": "Send affiliate emails via Mailjet (Ora Repot).\n\nAuth: Basic (API Key : Secret Key)\nFrom: hello@orarepot.com\n\nKeys from orarepot-be MAILJET_API_KEY / MAILJET_SECRET_KEY.\nDo not publish this collection publicly.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "variable": [
+    {
+      "key": "mailjetApiKey",
+      "value": "8b4648fcd727a55f3e49e5c01a5f9b68"
+    },
+    {
+      "key": "mailjetSecretKey",
+      "value": "4acaaf67f2809bb6a04edaa593c82c8c"
+    },
+    {
+      "key": "fromEmail",
+      "value": "hello@orarepot.com"
+    },
+    {
+      "key": "fromName",
+      "value": "Ora Repot"
+    },
+    {
+      "key": "toEmail",
+      "value": "affiliate@example.com"
+    },
+    {
+      "key": "toName",
+      "value": "Partner"
+    },
+    {
+      "key": "refLink",
+      "value": "https://orarepot.com/sign-up?ref=KODE_AFFILIATE"
+    }
+  ],
+  "auth": {
+    "type": "basic",
+    "basic": [
+      {
+        "key": "username",
+        "value": "{{mailjetApiKey}}",
+        "type": "string"
+      },
+      {
+        "key": "password",
+        "value": "{{mailjetSecretKey}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Affiliate",
+      "item": [
+        {
+          "name": "Send Affiliate Email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"Messages\": [\n    {\n      \"From\": {\n        \"Email\": \"{{fromEmail}}\",\n        \"Name\": \"{{fromName}}\"\n      },\n      \"To\": [\n        {\n          \"Email\": \"{{toEmail}}\",\n          \"Name\": \"{{toName}}\"\n        }\n      ],\n      \"Subject\": \"Program Affiliate Ora Repot — komisi 10%\",\n      \"TextPart\": \"Halo {{toName}},\\n\\nTerima kasih bergabung di Program Affiliate Ora Repot.\\n\\nBagikan tautan referral Anda. Setiap merchant yang daftar & top up lewat tautan itu, Anda mendapat komisi 10% ke wallet.\\n\\nTautan referral:\\n{{refLink}}\\n\\nAktifkan / kelola di Dashboard → Settings → Affiliate:\\nhttps://orarepot.com/dashboard/settings\\n\\nSalam,\\nTim Ora Repot\",\n      \"HTMLPart\": \"<div style=\\\"font-family:Inter,system-ui,sans-serif;max-width:560px;margin:0 auto;color:#111\\\"><p>Halo <strong>{{toName}}</strong>,</p><p>Terima kasih bergabung di <strong>Program Affiliate Ora Repot</strong>.</p><p>Bagikan tautan referral Anda. Setiap merchant yang daftar &amp; top up lewat tautan itu, Anda mendapat <strong>komisi 10%</strong> ke wallet.</p><p style=\\\"margin:20px 0\\\"><a href=\\\"{{refLink}}\\\" style=\\\"display:inline-block;background:#111;color:#fff;padding:12px 18px;border-radius:8px;text-decoration:none\\\">Buka tautan referral</a></p><p style=\\\"word-break:break-all;font-size:13px;color:#555\\\">{{refLink}}</p><p style=\\\"color:#555;font-size:13px\\\">Kelola di Dashboard → Settings → Affiliate:<br/><a href=\\\"https://orarepot.com/dashboard/settings\\\">https://orarepot.com/dashboard/settings</a></p><p>Salam,<br/>Tim Ora Repot</p></div>\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://api.mailjet.com/v3.1/send",
+              "protocol": "https",
+              "host": ["api", "mailjet", "com"],
+              "path": ["v3.1", "send"]
+            },
+            "description": "POST https://api.mailjet.com/v3.1/send\n\nBasic auth = MAILJET_API_KEY : MAILJET_SECRET_KEY\n\nGanti collection variables:\n- toEmail / toName\n- refLink (tautan referral affiliate)"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
