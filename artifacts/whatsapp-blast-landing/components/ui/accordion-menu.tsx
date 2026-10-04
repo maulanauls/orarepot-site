@@ -236,13 +236,30 @@ function AccordionMenuItem({
             if (onClick) {
               onClick(e);
             }
-            e.preventDefault();
+            const anchor = (e.target as HTMLElement | null)?.closest?.('a');
+            const href = anchor?.getAttribute('href') ?? '';
+            const isExternal =
+              href.startsWith('http://') ||
+              href.startsWith('https://') ||
+              anchor?.getAttribute('target') === '_blank';
+            // Keep accordion selection behavior for in-app routes, but do not
+            // block real navigation for docs.orarepot.com (and other externals).
+            if (!isExternal) {
+              e.preventDefault();
+            }
           }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
-              e.preventDefault();
               const target = e.currentTarget as HTMLElement;
               const firstChild = target.firstElementChild as HTMLElement | null;
+              const href = firstChild?.getAttribute?.('href') ?? '';
+              const isExternal =
+                href.startsWith('http://') ||
+                href.startsWith('https://') ||
+                firstChild?.getAttribute('target') === '_blank';
+              if (!isExternal) {
+                e.preventDefault();
+              }
               if (firstChild) {
                 firstChild.click();
               }
