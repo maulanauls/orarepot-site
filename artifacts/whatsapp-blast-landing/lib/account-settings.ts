@@ -1,6 +1,7 @@
 export type SettingsTab =
   | 'profile'
   | 'appearance'
+  | 'ipAllowlist'
   | 'privacy'
   | 'audit'
   | 'affiliate';

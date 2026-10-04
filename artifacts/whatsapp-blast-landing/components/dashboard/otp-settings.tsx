@@ -7,11 +7,8 @@ import {
   CircleHelp,
   Copy,
   KeyRound,
-  Plus,
   ScrollText,
   Send,
-  Shield,
-  Trash2,
   Webhook,
 } from 'lucide-react';
 import { DashboardShell } from '@/components/dashboard/shell';
@@ -47,15 +44,13 @@ import {
   createApiKeyApi,
   fetchApiKeys,
   fetchApiRequestLogs,
-  fetchIpAllowlist,
   fetchWebhook,
   fetchWebhookDeliveries,
   revokeApiKeyApi,
-  saveIpAllowlist,
   saveWebhookApi,
 } from '@/lib/orarepot-api';
 
-type Tab = 'summary' | 'keys' | 'webhook' | 'deliveries' | 'requests' | 'ip';
+type Tab = 'summary' | 'keys' | 'webhook' | 'deliveries' | 'requests';
 
 function formatWhen(iso: string) {
   return new Date(iso).toLocaleString('id-ID', {
@@ -73,7 +68,6 @@ export function OtpSettingsPage() {
   const [webhook, setWebhook] = useState<OtpWebhook | null>(null);
   const [deliveries, setDeliveries] = useState<OtpWebhookDelivery[]>([]);
   const [requests, setRequests] = useState<OtpApiRequestLog[]>([]);
-  const [ipRows, setIpRows] = useState<string[]>(['']);
   const [createOpen, setCreateOpen] = useState(false);
   const [keyName, setKeyName] = useState('Production');
   const [freshSecret, setFreshSecret] = useState('');
@@ -83,8 +77,6 @@ export function OtpSettingsPage() {
   const [whEvents, setWhEvents] = useState<OtpWebhookEvent[]>(['otp.sent', 'otp.failed']);
   const [savedNote, setSavedNote] = useState('');
   const [keysError, setKeysError] = useState('');
-  const [ipError, setIpError] = useState('');
-  const [ipSaving, setIpSaving] = useState(false);
 
   async function reload() {
     try {
@@ -114,13 +106,6 @@ export function OtpSettingsPage() {
       setRequests(await fetchApiRequestLogs());
     } catch {
       setRequests([]);
-    }
-    try {
-      const ips = await fetchIpAllowlist();
-      setIpRows(ips.length ? ips : ['']);
-      setIpError('');
-    } catch {
-      setIpRows(['']);
     }
   }
 
@@ -168,22 +153,6 @@ export function OtpSettingsPage() {
     );
   }
 
-  async function onSaveIpAllowlist() {
-    const ips = ipRows.map((ip) => ip.trim()).filter(Boolean);
-    setIpSaving(true);
-    setIpError('');
-    try {
-      const saved = await saveIpAllowlist(ips);
-      setIpRows(saved.length ? saved : ['']);
-      setSavedNote(t('otp.devIpAllowlistSaved'));
-      window.setTimeout(() => setSavedNote(''), 1600);
-    } catch (err) {
-      setIpError(err instanceof Error ? err.message : t('otp.devIpAllowlistError'));
-    } finally {
-      setIpSaving(false);
-    }
-  }
-
   return (
     <DashboardShell
       title={t('menu.otpSettings')}
@@ -200,7 +169,6 @@ export function OtpSettingsPage() {
         <TabsList variant="line" className="mb-5 w-full justify-start overflow-x-auto">
           <TabsTrigger value="summary">{t('otp.devSummary')}</TabsTrigger>
           <TabsTrigger value="keys">{t('otp.devApiKey')}</TabsTrigger>
-          <TabsTrigger value="ip">{t('otp.devIpAllowlist')}</TabsTrigger>
           <TabsTrigger value="webhook">{t('otp.devWebhook')}</TabsTrigger>
           <TabsTrigger value="deliveries">{t('otp.devDeliveries')}</TabsTrigger>
           <TabsTrigger value="requests">{t('otp.devRequests')}</TabsTrigger>
@@ -227,12 +195,6 @@ export function OtpSettingsPage() {
                 title={t('otp.devApiKey')}
                 body={t('otp.devApiKeyDesc')}
                 onClick={() => setTab('keys')}
-              />
-              <SummaryCard
-                icon={Shield}
-                title={t('otp.devIpAllowlist')}
-                body={t('otp.devIpAllowlistDesc')}
-                onClick={() => setTab('ip')}
               />
               <SummaryCard
                 icon={Webhook}
@@ -313,70 +275,6 @@ export function OtpSettingsPage() {
               <p className="text-xs text-muted-foreground m-0 pt-2">
                 {`POST ${OTP_SEND_URL} — Authorization: Bearer orp_live_…`}
               </p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="ip">
-          <Card>
-            <CardHeader className="py-4">
-              <div>
-                <CardTitle>{t('otp.devIpAllowlist')}</CardTitle>
-                <p className="text-sm text-muted-foreground m-0 mt-1">{t('otp.devIpAllowlistLead')}</p>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {ipRows.every((row) => !row.trim()) ? (
-                <p className="text-sm text-muted-foreground m-0">{t('otp.devIpAllowlistEmpty')}</p>
-              ) : null}
-              <div className="space-y-2">
-                {ipRows.map((value, index) => (
-                  <div key={`ip-${index}`} className="flex items-center gap-2">
-                    <Input
-                      value={value}
-                      onChange={(e) => {
-                        const next = [...ipRows];
-                        next[index] = e.target.value;
-                        setIpRows(next);
-                      }}
-                      placeholder={t('otp.devIpAllowlistHint')}
-                      className="font-mono text-sm"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      mode="icon"
-                      disabled={ipRows.length <= 1}
-                      onClick={() => {
-                        setIpRows((current) =>
-                          current.length <= 1
-                            ? ['']
-                            : current.filter((_, i) => i !== index),
-                        );
-                      }}
-                    >
-                      <Trash2 />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground m-0">{t('otp.devIpAllowlistHint')}</p>
-              {ipError ? <p className="text-sm text-destructive m-0">{ipError}</p> : null}
-              {savedNote && tab === 'ip' ? (
-                <p className="text-sm text-primary m-0">{savedNote}</p>
-              ) : null}
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIpRows((current) => [...current, ''])}
-                >
-                  <Plus /> {t('otp.devIpAllowlistAdd')}
-                </Button>
-                <Button type="button" onClick={onSaveIpAllowlist} disabled={ipSaving}>
-                  {t('common.save')}
-                </Button>
-              </div>
             </CardContent>
           </Card>
         </TabsContent>

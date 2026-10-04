@@ -22,7 +22,7 @@ export default function Page() {
           <code>orarepot.com/api</code>.
         </li>
         <li>
-          Optional IP whitelist in Dashboard → OTP Settings. When set, only those
+          Optional IP whitelist in Dashboard → Settings. When set, only those
           server IPs may call <code>/v1/otp/send</code> (empty list = allow all).
         </li>
       </ul>

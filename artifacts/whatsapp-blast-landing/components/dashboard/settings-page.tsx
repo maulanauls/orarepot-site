@@ -7,6 +7,8 @@ import {
   FileSearch,
   Gift,
   Palette,
+  Plus,
+  Shield,
   ShieldCheck,
   Trash2,
   UserRound,
@@ -27,7 +29,7 @@ import {
 } from '@/lib/account-settings';
 import { UserAvatar } from '@/components/user-avatar';
 import { getStoredUser, persistSession, getToken, clearSession } from '@/lib/session';
-import { patchMe } from '@/lib/orarepot-api';
+import { fetchIpAllowlist, patchMe, saveIpAllowlist } from '@/lib/orarepot-api';
 import { cn } from '@/lib/utils';
 
 const TABS: {
@@ -37,6 +39,7 @@ const TABS: {
 }[] = [
   { id: 'profile', icon: UserRound, labelKey: 'settingsPage.navProfile' },
   { id: 'appearance', icon: Palette, labelKey: 'settingsPage.navAppearance' },
+  { id: 'ipAllowlist', icon: Shield, labelKey: 'settingsPage.navIpAllowlist' },
   { id: 'privacy', icon: ShieldCheck, labelKey: 'settingsPage.navPrivacy' },
   { id: 'audit', icon: FileSearch, labelKey: 'settingsPage.navAudit' },
   { id: 'affiliate', icon: Gift, labelKey: 'settingsPage.navAffiliate' },
@@ -57,6 +60,9 @@ export function SettingsPage() {
   const [emailLocked, setEmailLocked] = useState(true);
   const [saved, setSaved] = useState('');
   const [ready, setReady] = useState(false);
+  const [ipRows, setIpRows] = useState<string[]>(['']);
+  const [ipError, setIpError] = useState('');
+  const [ipSaving, setIpSaving] = useState(false);
 
   useEffect(() => {
     const stored = getAccountSettings();
@@ -71,6 +77,24 @@ export function SettingsPage() {
     setTheme(stored.appearance.theme);
     setReady(true);
   }, []);
+
+  useEffect(() => {
+    if (tab !== 'ipAllowlist') return;
+    let cancelled = false;
+    void fetchIpAllowlist()
+      .then((ips) => {
+        if (!cancelled) {
+          setIpRows(ips.length ? ips : ['']);
+          setIpError('');
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setIpRows(['']);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tab]);
 
   function persist(next: {
     profile?: AccountProfile;
@@ -123,27 +147,47 @@ export function SettingsPage() {
     router.push('/sign-in');
   }
 
+  async function onSaveIpAllowlist() {
+    const ips = ipRows.map((ip) => ip.trim()).filter(Boolean);
+    setIpSaving(true);
+    setIpError('');
+    try {
+      const savedIps = await saveIpAllowlist(ips);
+      setIpRows(savedIps.length ? savedIps : ['']);
+      setSaved(t('settingsPage.ipSaved'));
+      window.setTimeout(() => setSaved(''), 1600);
+    } catch (err) {
+      setIpError(err instanceof Error ? err.message : t('settingsPage.ipError'));
+    } finally {
+      setIpSaving(false);
+    }
+  }
+
   const heading =
     tab === 'profile'
       ? t('settingsPage.profileTitle')
       : tab === 'appearance'
         ? t('settingsPage.appearanceTitle')
-        : tab === 'privacy'
-          ? t('settingsPage.privacyTitle')
-          : tab === 'audit'
-            ? t('settingsPage.auditTitle')
-            : t('settingsPage.affiliateTitle');
+        : tab === 'ipAllowlist'
+          ? t('settingsPage.ipTitle')
+          : tab === 'privacy'
+            ? t('settingsPage.privacyTitle')
+            : tab === 'audit'
+              ? t('settingsPage.auditTitle')
+              : t('settingsPage.affiliateTitle');
 
   const lead =
     tab === 'profile'
       ? t('settingsPage.profileLead')
       : tab === 'appearance'
         ? t('settingsPage.appearanceLead')
-        : tab === 'privacy'
-          ? t('settingsPage.privacyLead')
-          : tab === 'audit'
-            ? t('settingsPage.auditLead')
-            : t('settingsPage.affiliateLead');
+        : tab === 'ipAllowlist'
+          ? t('settingsPage.ipLead')
+          : tab === 'privacy'
+            ? t('settingsPage.privacyLead')
+            : tab === 'audit'
+              ? t('settingsPage.auditLead')
+              : t('settingsPage.affiliateLead');
 
   if (!ready) {
     return (
@@ -276,6 +320,62 @@ export function SettingsPage() {
                 {t('settingsPage.updatePrefs')}
               </Button>
               {saved ? <p className="text-sm text-primary m-0">{saved}</p> : null}
+            </div>
+          ) : null}
+
+          {tab === 'ipAllowlist' ? (
+            <div className="max-w-xl space-y-4">
+              {ipRows.every((row) => !row.trim()) ? (
+                <p className="text-sm text-muted-foreground m-0">{t('settingsPage.ipEmpty')}</p>
+              ) : null}
+              <div className="space-y-2">
+                {ipRows.map((value, index) => (
+                  <div key={`ip-${index}`} className="flex items-center gap-2">
+                    <Input
+                      value={value}
+                      onChange={(e) => {
+                        const next = [...ipRows];
+                        next[index] = e.target.value;
+                        setIpRows(next);
+                      }}
+                      placeholder={t('settingsPage.ipHint')}
+                      className="font-mono text-sm"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      mode="icon"
+                      disabled={ipRows.length <= 1}
+                      onClick={() => {
+                        setIpRows((current) =>
+                          current.length <= 1
+                            ? ['']
+                            : current.filter((_, i) => i !== index),
+                        );
+                      }}
+                    >
+                      <Trash2 />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground m-0">{t('settingsPage.ipHint')}</p>
+              {ipError ? <p className="text-sm text-destructive m-0">{ipError}</p> : null}
+              {saved && tab === 'ipAllowlist' ? (
+                <p className="text-sm text-primary m-0">{saved}</p>
+              ) : null}
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIpRows((current) => [...current, ''])}
+                >
+                  <Plus /> {t('settingsPage.ipAdd')}
+                </Button>
+                <Button type="button" onClick={onSaveIpAllowlist} disabled={ipSaving}>
+                  {t('common.save')}
+                </Button>
+              </div>
             </div>
           ) : null}
 
