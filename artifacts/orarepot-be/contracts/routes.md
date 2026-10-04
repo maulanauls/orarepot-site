@@ -59,7 +59,9 @@ JWT (`Authorization: Bearer`) required unless noted.
 - `PUT  /developer/webhooks`
 - `GET  /developer/request-logs?merchantId=`
 - `GET  /developer/webhook-deliveries?merchantId=`
-- `POST /v1/otp/send`  public API key `orp_live_…` body `{ to, template, code? }` — checks subscription + OTP quota, then sends
+- `GET  /developer/ip-allowlist?merchantId=`
+- `PUT  /developer/ip-allowlist` body `{ merchantId, ips: string[] }` — empty list = allow all IPs
+- `POST /v1/otp/send`  public API key `orp_live_…` body `{ to, template, code? }` — checks IP allowlist + subscription + OTP quota, then sends
 - `POST /v1/otp/sends`  same handler
 
 ## reporting — Node :8205

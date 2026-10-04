@@ -615,6 +615,23 @@ export async function fetchWebhookDeliveries(): Promise<OtpWebhookDelivery[]> {
   }));
 }
 
+export async function fetchIpAllowlist(): Promise<string[]> {
+  const merchantId = await resolveMerchantId();
+  const row = await api<{ ips?: string[] }>(
+    `/developer/ip-allowlist?merchantId=${encodeURIComponent(merchantId)}`,
+  );
+  return row?.ips ?? [];
+}
+
+export async function saveIpAllowlist(ips: string[]): Promise<string[]> {
+  const merchantId = await resolveMerchantId();
+  const row = await api<{ ips?: string[] }>('/developer/ip-allowlist', {
+    method: 'PUT',
+    body: JSON.stringify({ merchantId, ips }),
+  });
+  return row?.ips ?? [];
+}
+
 export type WabaRow = {
   id: string;
   phone_e164?: string | null;

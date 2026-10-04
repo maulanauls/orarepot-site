@@ -33,6 +33,19 @@ CREATE INDEX mt_api_keys_merchant_idx
   ON mt_api_keys (merchant_id)
   WHERE revoked_at IS NULL;
 
+-- Empty allowlist = all IPs allowed. Non-empty = only matching cidr may call Public API.
+CREATE TABLE mt_api_ip_allowlist (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  merchant_id     uuid NOT NULL,
+  cidr            inet NOT NULL,
+  label           text,
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT mt_api_ip_allowlist_unique UNIQUE (merchant_id, cidr)
+);
+
+CREATE INDEX mt_api_ip_allowlist_merchant_idx
+  ON mt_api_ip_allowlist (merchant_id);
+
 CREATE TABLE mt_webhooks (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   merchant_id     uuid NOT NULL UNIQUE,

@@ -163,6 +163,52 @@ class DeveloperController implements OnModuleInit {
     );
   }
 
+  @Get('developer/ip-allowlist')
+  async getIpAllowlist(@Query('merchantId') merchantId: string) {
+    if (!merchantId) throw httpError(400, 'merchantId required');
+    const rows = await q<{ id: string; cidr: string; label: string | null; created_at: string }>(
+      `SELECT id, cidr::text AS cidr, label, created_at
+       FROM mt_api_ip_allowlist
+       WHERE merchant_id = $1
+       ORDER BY created_at ASC`,
+      [merchantId],
+    );
+    return { merchantId, ips: rows.map((r) => r.cidr), items: rows };
+  }
+
+  @Put('developer/ip-allowlist')
+  async putIpAllowlist(
+    @Headers() headers: Record<string, string>,
+    @Body() body: { merchantId: string; ips?: string[] },
+  ) {
+    requireUser(headers);
+    if (!body.merchantId) throw httpError(400, 'merchantId required');
+    const unique = [
+      ...new Set(
+        (body.ips ?? [])
+          .map((ip) => String(ip ?? '').trim())
+          .filter(Boolean),
+      ),
+    ];
+    for (const ip of unique) {
+      if (!isIpOrCidr(ip)) {
+        throw httpError(400, `invalid IP or CIDR: ${ip}`);
+      }
+    }
+    await q(`DELETE FROM mt_api_ip_allowlist WHERE merchant_id = $1`, [body.merchantId]);
+    for (const ip of unique) {
+      try {
+        await q(
+          `INSERT INTO mt_api_ip_allowlist (merchant_id, cidr) VALUES ($1, $2::inet)`,
+          [body.merchantId, ip],
+        );
+      } catch {
+        throw httpError(400, `invalid IP or CIDR: ${ip}`);
+      }
+    }
+    return this.getIpAllowlist(body.merchantId);
+  }
+
   @Put('developer/webhooks')
   async putWebhook(
     @Headers() headers: Record<string, string>,
@@ -192,6 +238,7 @@ class DeveloperController implements OnModuleInit {
   @Post('v1/otp/sends')
   async publicSend(@Req() req: { headers: Record<string, string>; ip?: string }, @Body() body: PublicSendBody) {
     const started = Date.now();
+    const ip = clientIp(req);
     const auth = headerValue(req.headers, 'authorization');
     const raw = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
     if (!raw.startsWith('orp_live_')) throw httpError(401, 'api key required');
@@ -201,6 +248,16 @@ class DeveloperController implements OnModuleInit {
     );
     if (!key) throw httpError(401, 'invalid api key');
     if (key.revoked_at) throw httpError(401, 'api key revoked');
+
+    const allowed = await assertIpAllowed(key.merchant_id, ip);
+    if (!allowed) {
+      await q(
+        `INSERT INTO cm_api_request_logs (merchant_id, api_key_id, method, path, status, ip, duration_ms)
+         VALUES ($1,$2,'POST','/v1/otp/send',403,$3,$4)`,
+        [key.merchant_id, key.id, ip, Date.now() - started],
+      );
+      throw httpError(403, 'IP address is not allowlisted for this API key');
+    }
 
     const phone = toE164(body.to ?? body.phoneE164 ?? body.phone_e164 ?? '');
     const templateName = (body.template ?? body.templateId ?? body.template_id ?? '').trim();
@@ -235,7 +292,7 @@ class DeveloperController implements OnModuleInit {
     await q(
       `INSERT INTO cm_api_request_logs (merchant_id, api_key_id, method, path, status, ip, duration_ms)
        VALUES ($1,$2,'POST','/v1/otp/send',$3,$4,$5)`,
-      [key.merchant_id, key.id, status, req.ip ?? null, Date.now() - started],
+      [key.merchant_id, key.id, status, ip, Date.now() - started],
     );
     await q(`UPDATE mt_api_keys SET last_used_at = now() WHERE id = $1`, [key.id]);
     if (!res.ok) {
@@ -280,6 +337,58 @@ type Quota = {
 function headerValue(headers: Record<string, string | string[] | undefined>, name: string) {
   const raw = headers[name] ?? headers[name.toLowerCase()];
   return (Array.isArray(raw) ? raw[0] : raw) ?? '';
+}
+
+function clientIp(req: { headers: Record<string, string>; ip?: string }): string | null {
+  const forwarded = headerValue(req.headers, 'x-forwarded-for');
+  if (forwarded) {
+    const first = forwarded.split(',')[0]?.trim();
+    if (first) return first.replace(/^::ffff:/, '');
+  }
+  const realIp = headerValue(req.headers, 'x-real-ip').trim();
+  if (realIp) return realIp.replace(/^::ffff:/, '');
+  const fallback = (req.ip ?? '').trim().replace(/^::ffff:/, '');
+  return fallback || null;
+}
+
+function isIpOrCidr(value: string): boolean {
+  // IPv4 or IPv4/CIDR
+  if (/^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/.test(value)) {
+    const [host, mask] = value.split('/');
+    const octets = host.split('.').map(Number);
+    if (octets.some((n) => n > 255)) return false;
+    if (mask !== undefined) {
+      const m = Number(mask);
+      if (!Number.isInteger(m) || m < 0 || m > 32) return false;
+    }
+    return true;
+  }
+  // IPv6 / IPv6 CIDR (basic shape; Postgres inet is the final validator)
+  if (/^[0-9a-fA-F:]+(\/\d{1,3})?$/.test(value) && value.includes(':')) {
+    if (value.includes('/')) {
+      const m = Number(value.split('/')[1]);
+      if (!Number.isInteger(m) || m < 0 || m > 128) return false;
+    }
+    return true;
+  }
+  return false;
+}
+
+async function assertIpAllowed(merchantId: string, ip: string | null): Promise<boolean> {
+  const countRow = await one<{ n: string }>(
+    `SELECT count(*)::text AS n FROM mt_api_ip_allowlist WHERE merchant_id = $1`,
+    [merchantId],
+  );
+  if (!countRow || Number(countRow.n) === 0) return true;
+  if (!ip) return false;
+  const match = await one<{ ok: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1 FROM mt_api_ip_allowlist
+       WHERE merchant_id = $1 AND $2::inet <<= cidr
+     ) AS ok`,
+    [merchantId, ip],
+  );
+  return Boolean(match?.ok);
 }
 
 function toE164(raw: string): string | null {
