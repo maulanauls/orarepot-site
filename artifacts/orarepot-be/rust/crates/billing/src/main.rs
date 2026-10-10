@@ -19,6 +19,7 @@ struct AppState {
     http: reqwest::Client,
     midtrans_server_key: String,
     midtrans_production: bool,
+    midtrans_notification_url: Option<String>,
     public_app_url: String,
 }
 
@@ -98,6 +99,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .build()?,
         midtrans_server_key: std::env::var("MIDTRANS_SERVER_KEY").unwrap_or_default(),
         midtrans_production,
+        midtrans_notification_url: midtrans_notification_url(midtrans_production),
         public_app_url: std::env::var("PUBLIC_APP_URL")
             .unwrap_or_else(|_| "https://orarepot.com".into()),
     };
@@ -174,6 +176,7 @@ async fn list_invoices(
     State(state): State<AppState>,
     Path(merchant_id): Path<Uuid>,
 ) -> Result<Json<Vec<InvoiceRow>>, AppError> {
+    sync_merchant_pending(&state, merchant_id).await;
     let rows = sqlx::query_as::<_, InvoiceRow>(
         "SELECT id, number, label, amount_idr, status::text AS status, issued_on
          FROM tx_invoices WHERE merchant_id = $1
@@ -210,6 +213,20 @@ async fn get_payment(
     .fetch_optional(&state.pool)
     .await?
     .ok_or_else(|| AppError::not_found("payment"))?;
+    if row.status == "pending" {
+        sync_order(&state, &order_id).await;
+        let refreshed = sqlx::query_as::<_, PaymentRow>(
+            "SELECT id, merchant_id, order_id, amount_idr, status::text AS status,
+                    snap_token, snap_redirect_url, paid_at
+             FROM tx_payments WHERE order_id = $1",
+        )
+        .bind(&order_id)
+        .fetch_optional(&state.pool)
+        .await?;
+        if let Some(refreshed) = refreshed {
+            return Ok(Json(refreshed));
+        }
+    }
     Ok(Json(row))
 }
 
@@ -389,14 +406,15 @@ async fn post_snap(
             "unfinish": format!("{origin}/pay/error")
         }
     });
-    let res = state
+    let mut req = state
         .http
         .post(snap_api_url(state.midtrans_production))
         .basic_auth(&state.midtrans_server_key, Some(""))
-        .json(&payload)
-        .send()
-        .await
-        .map_err(|e| e.to_string())?;
+        .json(&payload);
+    if let Some(url) = &state.midtrans_notification_url {
+        req = req.header("X-Override-Notification", url);
+    }
+    let res = req.send().await.map_err(|e| e.to_string())?;
     let status = res.status().as_u16();
     let json: serde_json::Value = res.json().await.map_err(|e| e.to_string())?;
     Ok((status, json))
@@ -487,6 +505,44 @@ fn snap_error_message(json: &serde_json::Value) -> String {
     }
 }
 
+fn midtrans_notification_url(production: bool) -> Option<String> {
+    if let Ok(raw) = std::env::var("MIDTRANS_NOTIFICATION_URL") {
+        let url = raw.trim().to_string();
+        if !url.is_empty() {
+            return Some(url);
+        }
+    }
+    if production {
+        Some("https://api.orarepot.com/billing/payments/midtrans".into())
+    } else {
+        None
+    }
+}
+
+fn core_api_base(production: bool) -> &'static str {
+    if production {
+        "https://api.midtrans.com"
+    } else {
+        "https://api.sandbox.midtrans.com"
+    }
+}
+
+fn json_field(payload: &serde_json::Value, key: &str) -> String {
+    match payload.get(key) {
+        Some(serde_json::Value::String(value)) => value.clone(),
+        Some(serde_json::Value::Number(value)) => {
+            if let Some(whole) = value.as_i64() {
+                format!("{whole}.00")
+            } else if let Some(amount) = value.as_f64() {
+                format!("{amount:.2}")
+            } else {
+                value.to_string()
+            }
+        }
+        _ => String::new(),
+    }
+}
+
 fn signature_of(order_id: &str, status_code: &str, gross_amount: &str, server_key: &str) -> String {
     let mut hasher = Sha512::new();
     hasher.update(format!("{order_id}{status_code}{gross_amount}{server_key}"));
@@ -501,12 +557,20 @@ fn amount_matches(expected: i64, gross: &str) -> bool {
         .unwrap_or(false)
 }
 
-fn should_credit(transaction_status: &str, fraud_status: Option<&str>) -> bool {
-    match transaction_status {
-        "settlement" => true,
-        "capture" => fraud_status.map(|s| s == "accept").unwrap_or(true),
-        _ => false,
+fn should_credit(
+    transaction_status: &str,
+    status_code: &str,
+    fraud_status: Option<&str>,
+) -> bool {
+    if status_code != "200" {
+        return false;
     }
+    if let Some(fraud) = fraud_status {
+        if !fraud.eq_ignore_ascii_case("accept") {
+            return false;
+        }
+    }
+    matches!(transaction_status, "settlement" | "capture")
 }
 
 fn terminal_status(transaction_status: &str) -> Option<&'static str> {
@@ -518,40 +582,94 @@ fn terminal_status(transaction_status: &str) -> Option<&'static str> {
     }
 }
 
+async fn fetch_midtrans_status(
+    state: &AppState,
+    order_id: &str,
+) -> Result<serde_json::Value, String> {
+    let url = format!(
+        "{}/v2/{order_id}/status",
+        core_api_base(state.midtrans_production)
+    );
+    let res = state
+        .http
+        .get(url)
+        .basic_auth(&state.midtrans_server_key, Some(""))
+        .timeout(std::time::Duration::from_secs(4))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let status = res.status();
+    let json: serde_json::Value = res.json().await.map_err(|e| e.to_string())?;
+    if !status.is_success() {
+        return Err(format!(
+            "midtrans status {status}: {}",
+            json.get("status_message")
+                .and_then(|v| v.as_str())
+                .unwrap_or("no body")
+        ));
+    }
+    Ok(json)
+}
+
+async fn sync_order(state: &AppState, order_id: &str) {
+    if state.midtrans_server_key.is_empty() {
+        return;
+    }
+    match fetch_midtrans_status(state, order_id).await {
+        Ok(payload) => {
+            if let Err(err) = ingest_midtrans(state, payload).await {
+                tracing::warn!(order_id, error = %err, "midtrans status sync skipped");
+            }
+        }
+        Err(err) => tracing::info!(order_id, error = %err, "midtrans status fetch failed"),
+    }
+}
+
+async fn sync_merchant_pending(state: &AppState, merchant_id: Uuid) {
+    if state.midtrans_server_key.is_empty() {
+        return;
+    }
+    let orders: Vec<String> = sqlx::query_scalar(
+        "SELECT order_id FROM tx_payments
+         WHERE merchant_id = $1 AND status = 'pending'
+         ORDER BY created_at DESC
+         LIMIT 5",
+    )
+    .bind(merchant_id)
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+    for order_id in orders {
+        sync_order(state, &order_id).await;
+    }
+}
+
 async fn midtrans_callback(
     State(state): State<AppState>,
     Json(payload): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, AppError> {
+    ingest_midtrans(&state, payload).await
+}
+
+async fn ingest_midtrans(
+    state: &AppState,
+    payload: serde_json::Value,
+) -> Result<Json<serde_json::Value>, AppError> {
     if state.midtrans_server_key.is_empty() {
         return Err(AppError::internal("MIDTRANS_SERVER_KEY is not set"));
     }
-    let order_id = payload
-        .get("order_id")
-        .and_then(|v| v.as_str())
-        .unwrap_or_default();
-    let status_code = payload
-        .get("status_code")
-        .and_then(|v| v.as_str())
-        .unwrap_or_default();
-    let gross_amount = payload
-        .get("gross_amount")
-        .and_then(|v| v.as_str())
-        .unwrap_or_default();
-    let signature = payload
-        .get("signature_key")
-        .and_then(|v| v.as_str())
-        .unwrap_or_default();
-    let transaction_status = payload
-        .get("transaction_status")
-        .and_then(|v| v.as_str())
-        .unwrap_or_default();
+    let order_id = json_field(&payload, "order_id");
+    let status_code = json_field(&payload, "status_code");
+    let gross_amount = json_field(&payload, "gross_amount");
+    let signature = json_field(&payload, "signature_key");
+    let transaction_status = json_field(&payload, "transaction_status");
     if order_id.is_empty() || signature.is_empty() {
         return Err(AppError::bad("invalid midtrans payload"));
     }
     let expected = signature_of(
-        order_id,
-        status_code,
-        gross_amount,
+        &order_id,
+        &status_code,
+        &gross_amount,
         &state.midtrans_server_key,
     );
     if !signature.eq_ignore_ascii_case(&expected) {
@@ -561,7 +679,7 @@ async fn midtrans_callback(
     let payment = sqlx::query_as::<_, (Uuid, Uuid, i64, String)>(
         "SELECT id, merchant_id, amount_idr, status::text FROM tx_payments WHERE order_id = $1",
     )
-    .bind(order_id)
+    .bind(&order_id)
     .fetch_optional(&state.pool)
     .await?;
     let Some((payment_id, merchant_id, amount_idr, current_status)) = payment else {
@@ -592,8 +710,8 @@ async fn midtrans_callback(
     }
 
     let fraud = payload.get("fraud_status").and_then(|v| v.as_str());
-    if should_credit(transaction_status, fraud) {
-        if !amount_matches(amount_idr, gross_amount) {
+    if should_credit(&transaction_status, &status_code, fraud) {
+        if !amount_matches(amount_idr, &gross_amount) {
             tracing::warn!(
                 order_id,
                 amount_idr,
@@ -610,7 +728,7 @@ async fn midtrans_callback(
         })));
     }
 
-    if let Some(next) = terminal_status(transaction_status) {
+    if let Some(next) = terminal_status(&transaction_status) {
         sqlx::query(
             "UPDATE tx_payments SET status = $2::payment_status
              WHERE id = $1 AND status = 'pending'",

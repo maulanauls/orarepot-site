@@ -66,6 +66,8 @@ export function BillingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [payError, setPayError] = useState('');
 
+  const hasPending = invoices.some((inv) => inv.status === 'pending');
+
   useEffect(() => {
     fetchWallet()
       .then(setAccount)
@@ -74,6 +76,32 @@ export function BillingPage() {
       .then(setInvoices)
       .catch(() => setInvoices([]));
   }, []);
+
+  useEffect(() => {
+    if (!hasPending) return;
+    const timer = window.setInterval(() => {
+      fetchWallet()
+        .then(setAccount)
+        .catch(() => undefined);
+      fetchInvoices()
+        .then(setInvoices)
+        .catch(() => undefined);
+    }, 4000);
+    return () => window.clearInterval(timer);
+  }, [hasPending]);
+
+  useEffect(() => {
+    if (!hasPending) return;
+    const timer = window.setInterval(() => {
+      fetchWallet()
+        .then(setAccount)
+        .catch(() => undefined);
+      fetchInvoices()
+        .then(setInvoices)
+        .catch(() => undefined);
+    }, 4000);
+    return () => window.clearInterval(timer);
+  }, [hasPending]);
 
   const payAmount = custom ? Number(custom.replace(/\D/g, '')) || 0 : amount;
   const left = account ? remainingBalance(account) : 0;

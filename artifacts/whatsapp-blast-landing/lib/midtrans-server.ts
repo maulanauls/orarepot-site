@@ -66,13 +66,20 @@ async function postSnapTransaction(input: SnapTokenInput) {
     },
   };
 
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+    Authorization: authHeader(),
+  };
+  const notificationUrl = process.env.MIDTRANS_NOTIFICATION_URL?.trim()
+    || `${(process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://api.orarepot.com').replace(/\/$/, '')}/billing/payments/midtrans`;
+  if (notificationUrl.startsWith('https://')) {
+    headers['X-Override-Notification'] = notificationUrl;
+  }
+
   const res = await fetch(midtransSnapApiUrl(), {
     method: 'POST',
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      Authorization: authHeader(),
-    },
+    headers,
     body: JSON.stringify(payload),
     cache: 'no-store',
   });

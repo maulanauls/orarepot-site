@@ -39,6 +39,7 @@ services:
       RUST_LOG: info
       MIDTRANS_SERVER_KEY: ${MIDTRANS_SERVER_KEY:-}
       MIDTRANS_IS_PRODUCTION: ${MIDTRANS_IS_PRODUCTION:-false}
+      MIDTRANS_NOTIFICATION_URL: ${MIDTRANS_NOTIFICATION_URL:-https://api.orarepot.com/billing/payments/midtrans}
       PUBLIC_APP_URL: ${PUBLIC_APP_URL:-https://orarepot.com}
     ports: ["8102:8102"]
     networks: [app-network]
