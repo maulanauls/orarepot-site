@@ -49,6 +49,8 @@ struct Topup {
     customer_ref: Option<String>,
     language: Option<String>,
     origin: Option<String>,
+    method: Option<String>,
+    bank: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -290,6 +292,112 @@ async fn topup(
         _ => "id",
     };
 
+    let method = body.method.as_deref().unwrap_or("snap");
+    if method == "qris" {
+        if state.midtrans_server_key.is_empty() {
+            mark_payment_failed(&state.pool, payment_id).await?;
+            return Err(AppError::internal("MIDTRANS_SERVER_KEY is not set"));
+        }
+        match charge_qris(
+            &state,
+            &order_id,
+            body.amount_idr,
+            &body.customer_name,
+            customer_ref,
+            language,
+        )
+        .await
+        {
+            Ok(charge) => {
+                sqlx::query(
+                    "UPDATE tx_payments SET
+                        midtrans_transaction_id = $2,
+                        midtrans_payment_type = 'qris',
+                        midtrans_payload = $3
+                     WHERE id = $1",
+                )
+                .bind(payment_id)
+                .bind(&charge.transaction_id)
+                .bind(&charge.payload)
+                .execute(&state.pool)
+                .await?;
+                return Ok(Json(serde_json::json!({
+                    "payment_id": payment_id,
+                    "order_id": order_id,
+                    "status": "pending",
+                    "amount_idr": body.amount_idr,
+                    "payment_type": "qris",
+                    "qr_string": charge.qr_string,
+                    "qr_url": charge.qr_url
+                })));
+            }
+            Err(err) => {
+                tracing::warn!(order_id = %order_id, error = %err, "midtrans qris charge failed");
+                mark_payment_failed(&state.pool, payment_id).await?;
+                return Err(AppError::internal(err));
+            }
+        }
+    }
+
+    if method == "va" {
+        let bank = body
+            .bank
+            .as_deref()
+            .map(str::trim)
+            .unwrap_or("")
+            .to_ascii_lowercase();
+        if !is_va_bank(&bank) {
+            mark_payment_failed(&state.pool, payment_id).await?;
+            return Err(AppError::bad("pilih bank virtual account"));
+        }
+        if state.midtrans_server_key.is_empty() {
+            mark_payment_failed(&state.pool, payment_id).await?;
+            return Err(AppError::internal("MIDTRANS_SERVER_KEY is not set"));
+        }
+        match charge_va(
+            &state,
+            &order_id,
+            body.amount_idr,
+            &body.customer_name,
+            customer_ref,
+            language,
+            &bank,
+        )
+        .await
+        {
+            Ok(charge) => {
+                sqlx::query(
+                    "UPDATE tx_payments SET
+                        midtrans_transaction_id = $2,
+                        midtrans_payment_type = $3,
+                        midtrans_payload = $4
+                     WHERE id = $1",
+                )
+                .bind(payment_id)
+                .bind(&charge.transaction_id)
+                .bind(&charge.payment_type)
+                .bind(&charge.payload)
+                .execute(&state.pool)
+                .await?;
+                return Ok(Json(serde_json::json!({
+                    "payment_id": payment_id,
+                    "order_id": order_id,
+                    "status": "pending",
+                    "amount_idr": body.amount_idr,
+                    "payment_type": charge.payment_type,
+                    "bank": charge.bank,
+                    "va_number": charge.va_number,
+                    "biller_code": charge.biller_code
+                })));
+            }
+            Err(err) => {
+                tracing::warn!(order_id = %order_id, bank, error = %err, "midtrans va charge failed");
+                mark_payment_failed(&state.pool, payment_id).await?;
+                return Err(AppError::internal(err));
+            }
+        }
+    }
+
     let mut snap_token: Option<String> = None;
     let mut redirect_url: Option<String> = None;
     let mut used_order_id = order_id.clone();
@@ -406,18 +514,270 @@ async fn post_snap(
             "unfinish": format!("{origin}/pay/error")
         }
     });
+    midtrans_post(state, snap_api_url(state.midtrans_production), &payload).await
+}
+
+fn charge_api_url(production: bool) -> String {
+    format!("{}/v2/charge", core_api_base(production))
+}
+
+struct QrisCharge {
+    qr_string: String,
+    qr_url: Option<String>,
+    transaction_id: Option<String>,
+    payload: serde_json::Value,
+}
+
+fn qris_action_url(json: &serde_json::Value) -> Option<String> {
+    let actions = json.get("actions")?.as_array()?;
+    actions.iter().find_map(|action| {
+        let name = action.get("name").and_then(|v| v.as_str()).unwrap_or("");
+        let url = action.get("url").and_then(|v| v.as_str()).unwrap_or("");
+        if url.is_empty() {
+            return None;
+        }
+        if name == "generate-qr-code" || url.contains("qris") {
+            Some(url.to_string())
+        } else {
+            None
+        }
+    })
+}
+
+async fn midtrans_post(
+    state: &AppState,
+    url: &str,
+    payload: &serde_json::Value,
+) -> Result<(u16, serde_json::Value), String> {
     let mut req = state
         .http
-        .post(snap_api_url(state.midtrans_production))
+        .post(url)
         .basic_auth(&state.midtrans_server_key, Some(""))
-        .json(&payload);
-    if let Some(url) = &state.midtrans_notification_url {
-        req = req.header("X-Override-Notification", url);
+        .json(payload);
+    if let Some(notify) = &state.midtrans_notification_url {
+        req = req.header("X-Override-Notification", notify);
     }
     let res = req.send().await.map_err(|e| e.to_string())?;
     let status = res.status().as_u16();
     let json: serde_json::Value = res.json().await.map_err(|e| e.to_string())?;
     Ok((status, json))
+}
+
+async fn charge_qris(
+    state: &AppState,
+    order_id: &str,
+    amount: i64,
+    customer_name: &str,
+    customer_ref: &str,
+    language: &str,
+) -> Result<QrisCharge, String> {
+    let item_name = if language == "en" {
+        "Ora Repot Deposit"
+    } else {
+        "Deposit Ora Repot"
+    };
+    let payload = serde_json::json!({
+        "payment_type": "qris",
+        "transaction_details": { "order_id": order_id, "gross_amount": amount },
+        "item_details": [{
+            "id": "orarepot-deposit",
+            "name": item_name,
+            "price": amount,
+            "quantity": 1
+        }],
+        "customer_details": {
+            "first_name": customer_name,
+            "last_name": customer_ref
+        }
+    });
+    let (status, json) = midtrans_post(
+        state,
+        &charge_api_url(state.midtrans_production),
+        &payload,
+    )
+    .await?;
+    let code = json_field(&json, "status_code");
+    let qr_string = json
+        .get("qr_string")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if !(200..300).contains(&status) || (code != "200" && code != "201") || qr_string.is_empty() {
+        return Err(snap_error_message(&json));
+    }
+    let qr_url = qris_action_url(&json);
+    tracing::info!(
+        order_id,
+        qr_url = qr_url.as_deref().unwrap_or(""),
+        "midtrans qris charge created"
+    );
+    Ok(QrisCharge {
+        qr_string,
+        qr_url,
+        transaction_id: json
+            .get("transaction_id")
+            .and_then(|v| v.as_str())
+            .map(str::to_string),
+        payload: json,
+    })
+}
+
+fn is_va_bank(bank: &str) -> bool {
+    matches!(bank, "bca" | "bni" | "bri" | "mandiri" | "permata" | "cimb")
+}
+
+struct VaCharge {
+    bank: String,
+    payment_type: String,
+    va_number: String,
+    biller_code: Option<String>,
+    transaction_id: Option<String>,
+    payload: serde_json::Value,
+}
+
+fn va_number_from(json: &serde_json::Value, bank: &str) -> (String, Option<String>) {
+    if bank == "mandiri" {
+        let bill_key = json
+            .get("bill_key")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .trim()
+            .to_string();
+        let biller = json
+            .get("biller_code")
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string);
+        return (bill_key, biller);
+    }
+    if let Some(number) = json
+        .get("va_numbers")
+        .and_then(|v| v.as_array())
+        .and_then(|rows| {
+            rows.iter().find_map(|row| {
+                row.get("va_number")
+                    .and_then(|v| v.as_str())
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_string)
+            })
+        })
+    {
+        return (number, None);
+    }
+    let permata = json
+        .get("permata_va_number")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    (permata, None)
+}
+
+async fn charge_va(
+    state: &AppState,
+    order_id: &str,
+    amount: i64,
+    customer_name: &str,
+    customer_ref: &str,
+    language: &str,
+    bank: &str,
+) -> Result<VaCharge, String> {
+    let item_name = if language == "en" {
+        "Ora Repot Deposit"
+    } else {
+        "Deposit Ora Repot"
+    };
+    let payload = if bank == "mandiri" {
+        serde_json::json!({
+            "payment_type": "echannel",
+            "transaction_details": { "order_id": order_id, "gross_amount": amount },
+            "item_details": [{
+                "id": "orarepot-deposit",
+                "name": item_name,
+                "price": amount,
+                "quantity": 1
+            }],
+            "customer_details": {
+                "first_name": customer_name,
+                "last_name": customer_ref
+            },
+            "echannel": {
+                "bill_info1": "Payment:",
+                "bill_info2": item_name
+            }
+        })
+    } else {
+        serde_json::json!({
+            "payment_type": "bank_transfer",
+            "transaction_details": { "order_id": order_id, "gross_amount": amount },
+            "item_details": [{
+                "id": "orarepot-deposit",
+                "name": item_name,
+                "price": amount,
+                "quantity": 1
+            }],
+            "customer_details": {
+                "first_name": customer_name,
+                "last_name": customer_ref
+            },
+            "bank_transfer": { "bank": bank }
+        })
+    };
+    let (status, json) = midtrans_post(
+        state,
+        &charge_api_url(state.midtrans_production),
+        &payload,
+    )
+    .await?;
+    let code = json_field(&json, "status_code");
+    let (va_number, biller_code) = va_number_from(&json, bank);
+    if !(200..300).contains(&status) || (code != "200" && code != "201") || va_number.is_empty() {
+        return Err(snap_error_message(&json));
+    }
+    let payment_type = if bank == "mandiri" {
+        "echannel"
+    } else {
+        "bank_transfer"
+    };
+    tracing::info!(
+        order_id,
+        bank,
+        va_number = %va_number,
+        biller_code = biller_code.as_deref().unwrap_or(""),
+        "midtrans va charge created"
+    );
+    Ok(VaCharge {
+        bank: bank.to_string(),
+        payment_type: payment_type.to_string(),
+        va_number,
+        biller_code,
+        transaction_id: json
+            .get("transaction_id")
+            .and_then(|v| v.as_str())
+            .map(str::to_string),
+        payload: json,
+    })
+}
+
+async fn mark_payment_failed(pool: &PgPool, payment_id: Uuid) -> Result<(), AppError> {
+    sqlx::query(
+        "UPDATE tx_payments SET status = 'failed'
+         WHERE id = $1 AND status = 'pending'",
+    )
+    .bind(payment_id)
+    .execute(pool)
+    .await?;
+    sqlx::query(
+        "UPDATE tx_invoices SET status = 'void'
+         WHERE payment_id = $1 AND status = 'pending'",
+    )
+    .bind(payment_id)
+    .execute(pool)
+    .await?;
+    Ok(())
 }
 
 async fn create_snap(

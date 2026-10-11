@@ -385,6 +385,12 @@ export type TopupPending = {
   order_id: string;
   status: string;
   amount_idr: number;
+  payment_type?: string | null;
+  qr_string?: string | null;
+  qr_url?: string | null;
+  bank?: string | null;
+  va_number?: string | null;
+  biller_code?: string | null;
   snap_token?: string | null;
   redirect_url?: string | null;
 };
@@ -395,6 +401,8 @@ export async function createTopup(input: {
   customerRef?: string;
   language?: string;
   origin?: string;
+  method?: 'qris' | 'va';
+  bank?: string;
 }): Promise<TopupPending> {
   const merchantId = await resolveMerchantId();
   return api<TopupPending>('/billing/topups', {
@@ -406,6 +414,8 @@ export async function createTopup(input: {
       customer_ref: input.customerRef,
       language: input.language,
       origin: input.origin,
+      method: input.method,
+      bank: input.bank,
     }),
   });
 }

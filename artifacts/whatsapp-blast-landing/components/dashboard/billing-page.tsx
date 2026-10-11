@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import QRCode from 'qrcode';
 import { useRouter } from 'next/navigation';
 import { Bot, CreditCard, FileText, Radio, ShieldCheck } from 'lucide-react';
 import { DashboardShell } from '@/components/dashboard/shell';
@@ -17,13 +18,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   FEATURES,
   createPaySession,
   formatIdr,
@@ -39,7 +33,7 @@ import {
 } from '@/lib/billing';
 import { midtransLanguage } from '@/lib/midtrans';
 import { loadMidtransSnap } from '@/lib/midtrans-snap';
-import { createTopup, fetchInvoices, fetchWallet } from '@/lib/orarepot-api';
+import { createTopup, fetchInvoices, fetchPayment, fetchWallet } from '@/lib/orarepot-api';
 import { getStoredUser } from '@/lib/session';
 import { cn } from '@/lib/utils';
 
@@ -65,6 +59,21 @@ export function BillingPage() {
   const [bank, setBank] = useState('bca');
   const [submitting, setSubmitting] = useState(false);
   const [payError, setPayError] = useState('');
+  const [qris, setQris] = useState<{
+    orderId: string;
+    amount: number;
+    qr: string;
+  } | null>(null);
+  const [va, setVa] = useState<{
+    orderId: string;
+    amount: number;
+    bankId: string;
+    bank: string;
+    number: string;
+    billerCode?: string;
+  } | null>(null);
+  const [payPaid, setPayPaid] = useState(false);
+  const watchOrder = qris?.orderId ?? va?.orderId ?? '';
 
   const hasPending = invoices.some((inv) => inv.status === 'pending');
 
@@ -91,17 +100,31 @@ export function BillingPage() {
   }, [hasPending]);
 
   useEffect(() => {
-    if (!hasPending) return;
+    if (!watchOrder) return;
+    let cancelled = false;
     const timer = window.setInterval(() => {
-      fetchWallet()
-        .then(setAccount)
+      fetchPayment(watchOrder)
+        .then((row) => {
+          if (cancelled) return;
+          if (row.status === 'paid') {
+            setPayPaid(true);
+            setQris(null);
+            setVa(null);
+            fetchWallet().then(setAccount).catch(() => undefined);
+            fetchInvoices().then(setInvoices).catch(() => undefined);
+          } else if (row.status === 'expired' || row.status === 'failed' || row.status === 'canceled') {
+            setPayError(t('billing.errorLead'));
+            setQris(null);
+            setVa(null);
+          }
+        })
         .catch(() => undefined);
-      fetchInvoices()
-        .then(setInvoices)
-        .catch(() => undefined);
-    }, 4000);
-    return () => window.clearInterval(timer);
-  }, [hasPending]);
+    }, 3000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [watchOrder, t]);
 
   const payAmount = custom ? Number(custom.replace(/\D/g, '')) || 0 : amount;
   const left = account ? remainingBalance(account) : 0;
@@ -115,6 +138,7 @@ export function BillingPage() {
     if (!canSubmit) return;
     setSubmitting(true);
     setPayError('');
+    setPayPaid(false);
     try {
       const user = getStoredUser();
       const customerName = user?.full_name || user?.email || 'Merchant';
@@ -133,7 +157,34 @@ export function BillingPage() {
         customerRef,
         language: snapLanguage,
         origin: window.location.origin,
+        method,
+        bank: method === 'va' ? bank : undefined,
       });
+
+      if (method === 'qris' && pending.qr_string) {
+        setVa(null);
+        setQris({
+          orderId: pending.order_id,
+          amount: pending.amount_idr,
+          qr: pending.qr_string,
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      if (method === 'va' && pending.va_number) {
+        setQris(null);
+        setVa({
+          orderId: pending.order_id,
+          amount: pending.amount_idr,
+          bankId: (pending.bank || bank).toLowerCase(),
+          bank: (pending.bank || bank).toUpperCase(),
+          number: pending.va_number,
+          billerCode: pending.biller_code || undefined,
+        });
+        setSubmitting(false);
+        return;
+      }
 
       let token = pending.snap_token ?? '';
       if (!token) {
@@ -319,20 +370,55 @@ export function BillingPage() {
                   </button>
                 </div>
                 {method === 'va' ? (
-                  <Select value={bank} onValueChange={setBank}>
-                    <SelectTrigger>
-                      <SelectValue placeholder={t('billing.chooseBank')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {VA_BANKS.map((b) => (
-                        <SelectItem key={b.id} value={b.id}>
-                          {b.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {VA_BANKS.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setBank(item.id)}
+                        className={cn(
+                          'flex items-center gap-2.5 rounded-lg border px-3 py-2.5 text-start transition-colors',
+                          bank === item.id
+                            ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                            : 'border-border hover:bg-muted/60',
+                        )}
+                      >
+                        <BankMark id={item.id} />
+                        <span className="text-sm font-medium">{item.label}</span>
+                      </button>
+                    ))}
+                  </div>
                 ) : null}
               </div>
+              {qris ? (
+                <QrisPanel
+                  qr={qris.qr}
+                  amountLabel={formatIdr(qris.amount)}
+                  orderId={qris.orderId}
+                  title={t('billing.qrisTitle')}
+                  wait={t('billing.qrisWait')}
+                />
+              ) : null}
+              {va ? (
+                <VaPanel
+                  bankId={va.bankId}
+                  bank={va.bank}
+                  number={va.number}
+                  billerCode={va.billerCode}
+                  amountLabel={formatIdr(va.amount)}
+                  orderId={va.orderId}
+                  title={t('billing.vaTitle')}
+                  numberLabel={t('billing.vaNumber')}
+                  billerLabel={t('billing.vaBiller')}
+                  billKeyLabel={t('billing.vaBillKey')}
+                  wait={t('billing.vaWait')}
+                  copyLabel={t('billing.vaCopy')}
+                  copiedLabel={t('billing.vaCopied')}
+                />
+              ) : null}
+              {payPaid ? (
+                <p className="text-sm text-primary m-0">{t('billing.qrisPaid')}</p>
+              ) : null}
               {payError ? (
                 <p className="text-sm text-destructive m-0">{payError}</p>
               ) : null}
@@ -342,9 +428,19 @@ export function BillingPage() {
                 <p className="text-xs text-muted-foreground m-0">{t('billing.youPay')}</p>
                 <p className="text-lg font-semibold text-mono m-0">{formatIdr(payAmount)}</p>
               </div>
-              <Button onClick={onTopup} disabled={!canSubmit || submitting}>
+              <Button onClick={onTopup} disabled={!canSubmit || submitting || !!qris || !!va}>
                 <CreditCard />
-                {submitting ? t('billing.openingSnap') : t('billing.continuePay')}
+                {submitting
+                  ? method === 'qris'
+                    ? t('billing.qrisOpening')
+                    : method === 'va'
+                      ? t('billing.vaOpening')
+                      : t('billing.openingSnap')
+                  : method === 'qris'
+                    ? t('billing.showQris')
+                    : method === 'va'
+                      ? t('billing.showVa')
+                      : t('billing.continuePay')}
               </Button>
             </CardFooter>
           </Card>
@@ -436,6 +532,142 @@ export function BillingPage() {
         </Card>
       </div>
     </DashboardShell>
+  );
+}
+
+function QrisPanel({
+  qr,
+  amountLabel,
+  orderId,
+  title,
+  wait,
+}: {
+  qr: string;
+  amountLabel: string;
+  orderId: string;
+  title: string;
+  wait: string;
+}) {
+  const [src, setSrc] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    QRCode.toDataURL(qr, { width: 280, margin: 1, errorCorrectionLevel: 'M' })
+      .then((url) => {
+        if (!cancelled) setSrc(url);
+      })
+      .catch(() => {
+        if (!cancelled) setSrc('');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [qr]);
+
+  return (
+    <div className="rounded-lg border border-border px-4 py-4 text-center">
+      <p className="text-sm font-semibold m-0">{title}</p>
+      <p className="text-lg font-semibold text-mono m-0 mt-1">{amountLabel}</p>
+      {src ? (
+        <img src={src} alt="QRIS" width={280} height={280} className="mx-auto mt-3" />
+      ) : null}
+      <p className="text-xs text-muted-foreground m-0 mt-2">{orderId}</p>
+      <p className="text-sm text-muted-foreground m-0 mt-2">{wait}</p>
+    </div>
+  );
+}
+
+const BANK_LOGOS: Record<string, string> = {
+  bca: '/banks/bca.svg',
+  mandiri: '/banks/mandiri.svg',
+  bri: '/banks/bri.svg',
+  bni: '/banks/bni.svg',
+  permata: '/banks/permata.svg',
+  cimb: '/banks/cimb.svg',
+};
+
+function BankMark({ id }: { id: string }) {
+  const src = BANK_LOGOS[id];
+  if (!src) return null;
+  return (
+    <img
+      src={src}
+      alt=""
+      width={70}
+      height={50}
+      className="h-[50px] w-[70px] shrink-0 object-contain"
+    />
+  );
+}
+
+function VaPanel({
+  bankId,
+  bank,
+  number,
+  billerCode,
+  amountLabel,
+  orderId,
+  title,
+  numberLabel,
+  billerLabel,
+  billKeyLabel,
+  wait,
+  copyLabel,
+  copiedLabel,
+}: {
+  bankId: string;
+  bank: string;
+  number: string;
+  billerCode?: string;
+  amountLabel: string;
+  orderId: string;
+  title: string;
+  numberLabel: string;
+  billerLabel: string;
+  billKeyLabel: string;
+  wait: string;
+  copyLabel: string;
+  copiedLabel: string;
+}) {
+  const [copied, setCopied] = useState('');
+
+  async function copy(value: string, key: string) {
+    await navigator.clipboard.writeText(value);
+    setCopied(key);
+    window.setTimeout(() => setCopied(''), 1200);
+  }
+
+  return (
+    <div className="rounded-lg border border-border px-4 py-4">
+      <p className="text-sm font-semibold m-0 text-center">{title}</p>
+      <p className="text-lg font-semibold text-mono m-0 mt-1 text-center">{amountLabel}</p>
+      <p className="m-0 mt-3 flex items-center justify-center gap-2 text-sm font-medium">
+        <BankMark id={bankId} />
+        {bank}
+      </p>
+      {billerCode ? (
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs text-muted-foreground m-0">{billerLabel}</p>
+            <p className="text-base font-semibold text-mono m-0">{billerCode}</p>
+          </div>
+          <Button type="button" variant="outline" size="sm" onClick={() => copy(billerCode, 'biller')}>
+            {copied === 'biller' ? copiedLabel : copyLabel}
+          </Button>
+        </div>
+      ) : null}
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs text-muted-foreground m-0">{billerCode ? billKeyLabel : numberLabel}</p>
+          <p className="text-base font-semibold text-mono m-0">{number}</p>
+        </div>
+        <Button type="button" variant="outline" size="sm" onClick={() => copy(number, 'va')}>
+          {copied === 'va' ? copiedLabel : copyLabel}
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground m-0 mt-3 text-center">{orderId}</p>
+      <p className="text-sm text-muted-foreground m-0 mt-2 text-center">{wait}</p>
+    </div>
   );
 }
 

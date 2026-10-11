@@ -34,7 +34,7 @@ JWT (`Authorization: Bearer`) required unless noted.
 - `GET  /billing/wallets/:merchantId`
 - `GET  /billing/invoices/:merchantId`
 - `POST /billing/wallets`
-- `POST /billing/topups`  creates **pending** Midtrans payment (no wallet credit)
+- `POST /billing/topups`  creates **pending** Midtrans payment (no wallet credit). `method: "qris"` returns `qr_string`. `method: "va"` with `bank` returns `va_number` (Mandiri also returns `biller_code`). Neither opens Snap.
 - `GET  /billing/payments/:orderId`
 - `POST /billing/payments/midtrans`  public Midtrans HTTP notification (Snap `X-Override-Notification`). Credits the wallet on `settlement`/`capture` after signature check. `GET /billing/payments/:orderId` and `GET /billing/invoices/:merchantId` also pull Midtrans status for rows still `pending`. (signature SHA512, credits wallet on settlement/capture)
 - `GET  /billing/payments/:orderId` and `GET /billing/invoices/:merchantId` also pull Midtrans status for pending orders
