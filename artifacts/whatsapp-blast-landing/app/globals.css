@@ -1394,6 +1394,184 @@ html.dashboard-font .lang-switch button {
   font-size: 0.92rem;
 }
 
+.otp-section {
+  padding: 8px 0 72px;
+}
+.otp-layout {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 48px;
+  align-items: center;
+}
+.otp-steps {
+  list-style: none;
+  margin: 32px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 18px;
+}
+.otp-steps li {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  gap: 14px;
+  align-items: start;
+}
+.otp-steps li > span {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: rgba(15, 107, 102, 0.08);
+  color: var(--teal);
+  font-family: var(--font-poppins), 'Poppins', sans-serif;
+  font-weight: 700;
+  font-size: 0.78rem;
+}
+.otp-steps h3 {
+  margin: 2px 0 4px;
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+}
+.otp-steps p {
+  margin: 0;
+  color: #5f716b;
+  line-height: 1.55;
+  font-size: 0.92rem;
+}
+.otp-phone {
+  margin: 0;
+  background: linear-gradient(165deg, #071614, #0f3d39);
+  border-radius: 28px;
+  padding: 22px 22px 18px;
+  color: #f7fbf8;
+  box-shadow: 0 24px 50px rgba(12, 20, 19, 0.16);
+}
+.otp-phone-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.otp-phone-dot {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--lime);
+}
+.otp-phone-bar strong {
+  display: block;
+  font-size: 0.95rem;
+}
+.otp-phone-bar em {
+  display: block;
+  font-style: normal;
+  color: rgba(247, 251, 248, 0.55);
+  font-size: 0.75rem;
+}
+.otp-phone-thread {
+  background: #e7f3ee;
+  border-radius: 18px;
+  padding: 16px;
+  color: var(--ink);
+}
+.otp-bubble {
+  background: #fff;
+  border-radius: 14px 14px 14px 4px;
+  padding: 14px 14px 12px;
+  box-shadow: 0 1px 0 rgba(15, 107, 102, 0.06);
+}
+.otp-bubble-label {
+  margin: 0;
+  color: var(--teal);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.otp-code {
+  margin: 6px 0 8px;
+  font-family: var(--font-poppins), 'Poppins', sans-serif;
+  font-weight: 700;
+  font-size: 2rem;
+  letter-spacing: 0.08em;
+}
+.otp-bubble p {
+  margin: 0;
+  color: #3f524d;
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+.otp-meta {
+  margin-top: 8px !important;
+  color: #7b8d88 !important;
+  font-size: 0.75rem !important;
+}
+.otp-copy {
+  margin-top: 8px;
+  background: #fff;
+  border-radius: 12px;
+  text-align: center;
+  padding: 10px;
+  color: var(--teal);
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+.otp-phone figcaption {
+  margin: 14px 2px 0;
+  color: rgba(247, 251, 248, 0.62);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+.otp-uses {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-top: 36px;
+}
+.otp-uses article {
+  border: 1px solid rgba(15, 107, 102, 0.12);
+  border-radius: 16px;
+  padding: 18px;
+  background: #fff;
+}
+.otp-uses h3 {
+  margin: 0 0 8px;
+  font-size: 0.98rem;
+  letter-spacing: -0.02em;
+}
+.otp-uses p {
+  margin: 0;
+  color: #5f716b;
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+.otp-facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 28px;
+  margin: 22px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.otp-facts li {
+  position: relative;
+  padding-left: 16px;
+  color: #3f524d;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+.otp-facts li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--lime);
+}
+
 /* Demo page */
 .demo-page {
   min-height: calc(100dvh - 72px);
@@ -2312,7 +2490,9 @@ a.auth-submit {
   .messaging-split,
   .faq-layout,
   .product-hero-grid,
-  .benefit-grid {
+  .benefit-grid,
+  .otp-layout,
+  .otp-uses {
     grid-template-columns: 1fr;
   }
   .split-grid.reverse { direction: ltr; }
@@ -2344,6 +2524,7 @@ a.auth-submit {
   .ora-page .container { width: min(1180px, calc(100% - 32px)); }
   .digital-mosaic { grid-template-columns: 1fr; }
   .mosaic-item.wide { grid-column: auto; }
+  .otp-facts { grid-template-columns: 1fr; }
 }
 
 /* ========== Dashboard (Metronic-inspired) ========== */

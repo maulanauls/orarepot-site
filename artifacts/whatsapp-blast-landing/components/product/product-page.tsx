@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight, Check } from 'lucide-react';
 import { MetaPartnerBanner } from '@/components/home/meta-partner-banner';
+import { WabaOtpSection } from '@/components/product/waba-otp-section';
 import { getProduct, type ProductSlug } from '@/content/products';
 
 export function ProductPage({ slug }: { slug: ProductSlug }) {
@@ -55,6 +56,7 @@ export function ProductPage({ slug }: { slug: ProductSlug }) {
         </div>
       </section>
 
+      {product.slug === 'waba-messaging' && <WabaOtpSection />}
       {product.slug === 'waba-messaging' && <MetaPartnerBanner />}
 
       <section className="closing">

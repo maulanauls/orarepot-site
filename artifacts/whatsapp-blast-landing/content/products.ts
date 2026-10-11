@@ -78,7 +78,7 @@ export const products: Product[] = [
       },
       {
         title: 'OTP yang membangun kepercayaan',
-        body: 'Kode verifikasi sampai langsung di WhatsApp pelanggan untuk login dan transaksi.',
+        body: 'Aplikasi kamu mengirim kode lewat API. Pelanggan menerimanya di WhatsApp lewat template resmi, lalu status pengiriman kembali ke sistem kamu.',
       },
       {
         title: 'Dashboard kampanye',
