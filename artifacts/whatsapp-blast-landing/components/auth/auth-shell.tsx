@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation';
 import { ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { LanguageSwitcher } from '@/components/i18n/language-switcher';
 import { useT } from '@/components/i18n/locale-provider';
-import { loginUser, pendingInviteHref, persistAuth } from '@/lib/auth-api';
+import { loginUser, loginWithGoogle, pendingInviteHref, persistAuth } from '@/lib/auth-api';
+import { requestGoogleCode } from '@/lib/google-auth';
 import { AuthSnackbar, friendlyAuthError } from '@/components/auth/auth-snackbar';
 
 type Mode = 'signin' | 'register';
@@ -48,6 +49,24 @@ export function AuthShell({ mode }: { mode: Mode }) {
       return;
     }
     setSnack({ text: t('auth.registerReady'), tone: 'info' });
+  }
+
+  async function onGoogle() {
+    setSnack(null);
+    setSubmitting(true);
+    try {
+      const code = await requestGoogleCode();
+      const auth = await loginWithGoogle(code);
+      persistAuth(auth);
+      router.push(pendingInviteHref() ?? '/dashboard/otp');
+    } catch (err) {
+      setSubmitting(false);
+      const raw = err instanceof Error ? err.message : t('auth.googleFailed');
+      setSnack({
+        text: friendlyAuthError(raw, t('auth.backendDown')),
+        tone: 'error',
+      });
+    }
   }
 
   return (
@@ -140,7 +159,8 @@ export function AuthShell({ mode }: { mode: Mode }) {
           <button
             type="button"
             className="google-btn"
-            onClick={() => setSnack({ text: t('auth.googleReady'), tone: 'info' })}
+            onClick={onGoogle}
+            disabled={submitting}
           >
             <GoogleMark />
             Google

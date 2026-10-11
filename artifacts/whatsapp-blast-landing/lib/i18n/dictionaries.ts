@@ -192,6 +192,7 @@ export const id: Messages = {
     registerFailed: 'Registrasi gagal. Coba lagi.',
     registerReady: 'Form registrasi siap dihubungkan ke backend autentikasi.',
     googleReady: 'Google sign-in siap dihubungkan (OAuth).',
+    googleFailed: 'Masuk dengan Google gagal. Coba lagi.',
     regEyebrow: 'Daftar merchant',
     regTitle: 'Mulai pakai OTP & WhatsApp tanpa ribet.',
     regLead:
@@ -897,6 +898,7 @@ export const en: Messages = {
     registerFailed: 'Registration failed. Try again.',
     registerReady: 'Registration form is ready to connect to auth backend.',
     googleReady: 'Google sign-in is ready to connect (OAuth).',
+    googleFailed: 'Google sign-in failed. Try again.',
     regEyebrow: 'Merchant signup',
     regTitle: 'Start using OTP & WhatsApp without the hassle.',
     regLead:

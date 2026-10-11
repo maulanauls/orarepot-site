@@ -130,6 +130,17 @@ export async function resetPasswordWithOtp(input: {
   return (await res.json()) as { email?: string };
 }
 
+export async function loginWithGoogle(code: string): Promise<AuthResponse> {
+  const res = await fetch(`${API_BASE_URL}/auth/google`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ code }),
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  const auth = (await res.json()) as AuthResponse;
+  return finishAuth(auth, auth.user.full_name);
+}
+
 export function persistAuth(auth: AuthResponse) {
   persistSession({ token: auth.token, user: auth.user });
 }

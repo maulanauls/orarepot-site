@@ -24,6 +24,7 @@ CREATE TABLE mt_users (
   phone_e164        text,
   password_hash     text NOT NULL,
   full_name         text NOT NULL,
+  google_sub        text UNIQUE,
   image_url         text,
   email_verified_at timestamptz,
   last_login_at     timestamptz,

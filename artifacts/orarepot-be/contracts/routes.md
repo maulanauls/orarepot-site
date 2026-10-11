@@ -5,6 +5,7 @@ JWT (`Authorization: Bearer`) required unless noted.
 ## identity — Rust :8101
 - `POST /auth/register` public
 - `POST /auth/login` public (email **or** WhatsApp number + password)
+- `POST /auth/google` public — body `{ "code" }` from the Google popup. Verifies the code, then logs in or creates the user.
 - `POST /auth/forgot-password` public (WhatsApp OTP, max 2 / user / day)
 - `POST /auth/reset-password` public
 - `POST /auth/logout`

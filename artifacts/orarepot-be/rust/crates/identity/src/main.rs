@@ -31,6 +31,8 @@ struct AppState {
     wa_token: String,
     otp_tpl_id_name: String,
     otp_tpl_id_lang: String,
+    google_client_id: String,
+    google_client_secret: String,
 }
 
 #[derive(Deserialize)]
@@ -86,11 +88,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         otp_tpl_id_name: std::env::var("META_OTP_TEMPLATE_ID")
             .unwrap_or_else(|_| "otp_merchant_id".into()),
         otp_tpl_id_lang: std::env::var("META_OTP_TEMPLATE_ID_LANG").unwrap_or_else(|_| "id".into()),
+        google_client_id: std::env::var("GOOGLE_CLIENT_ID").unwrap_or_default(),
+        google_client_secret: std::env::var("GOOGLE_CLIENT_SECRET").unwrap_or_default(),
     };
     let app = Router::new()
         .route("/health", get(|| async { orarepot_common::health() }))
         .route("/auth/register", post(register))
         .route("/auth/login", post(login))
+        .route("/auth/google", post(google_login))
         .route("/auth/forgot-password", post(forgot_password))
         .route("/auth/reset-password", post(reset_password))
         .route("/auth/logout", post(logout))
@@ -223,6 +228,210 @@ async fn login(
         full_name: row.2,
         phone_e164: row.3,
     };
+    issue(&state, user, None).await
+}
+
+#[derive(Deserialize)]
+struct GoogleBody {
+    code: String,
+}
+
+struct GoogleProfile {
+    sub: String,
+    email: String,
+    name: String,
+    email_verified: bool,
+}
+
+fn urlencode(value: &str) -> String {
+    let mut out = String::new();
+    for byte in value.bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(byte as char);
+            }
+            _ => out.push_str(&format!("%{byte:02X}")),
+        }
+    }
+    out
+}
+
+fn json_flag(value: &serde_json::Value) -> bool {
+    match value {
+        serde_json::Value::Bool(flag) => *flag,
+        serde_json::Value::String(text) => text.eq_ignore_ascii_case("true"),
+        _ => false,
+    }
+}
+
+async fn exchange_google_code(state: &AppState, code: &str) -> Result<GoogleProfile, AppError> {
+    let body = format!(
+        "code={}&client_id={}&client_secret={}&redirect_uri=postmessage&grant_type=authorization_code",
+        urlencode(code),
+        urlencode(&state.google_client_id),
+        urlencode(&state.google_client_secret),
+    );
+    let token_res = state
+        .http
+        .post("https://oauth2.googleapis.com/token")
+        .header("content-type", "application/x-www-form-urlencoded")
+        .body(body)
+        .send()
+        .await
+        .map_err(|err| AppError::internal(err.to_string()))?;
+    let token_status = token_res.status();
+    let token_json: serde_json::Value = token_res
+        .json()
+        .await
+        .map_err(|err| AppError::internal(err.to_string()))?;
+    if !token_status.is_success() {
+        let message = token_json
+            .get("error_description")
+            .or_else(|| token_json.get("error"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("Google token exchange failed");
+        return Err(AppError::unauthorized(message));
+    }
+    let id_token = token_json
+        .get("id_token")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| AppError::unauthorized("Google did not return an id token"))?;
+    let info_res = state
+        .http
+        .get("https://oauth2.googleapis.com/tokeninfo")
+        .query(&[("id_token", id_token)])
+        .send()
+        .await
+        .map_err(|err| AppError::internal(err.to_string()))?;
+    let info_status = info_res.status();
+    let info: serde_json::Value = info_res
+        .json()
+        .await
+        .map_err(|err| AppError::internal(err.to_string()))?;
+    if !info_status.is_success() {
+        return Err(AppError::unauthorized("Google id token rejected"));
+    }
+    let aud = info.get("aud").and_then(|v| v.as_str()).unwrap_or("");
+    if aud != state.google_client_id {
+        return Err(AppError::unauthorized("Google token audience mismatch"));
+    }
+    let email = info
+        .get("email")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim()
+        .to_lowercase();
+    let sub = info.get("sub").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    if email.is_empty() || sub.is_empty() {
+        return Err(AppError::unauthorized("Google account has no email"));
+    }
+    let name = info
+        .get("name")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| email.split('@').next().unwrap_or("Ora Repot"))
+        .to_string();
+    Ok(GoogleProfile {
+        sub,
+        email,
+        name,
+        email_verified: info.get("email_verified").map(json_flag).unwrap_or(false),
+    })
+}
+
+async fn upsert_google_user(state: &AppState, profile: &GoogleProfile) -> Result<UserOut, AppError> {
+    if !profile.email_verified {
+        return Err(AppError::unauthorized("Google email is not verified"));
+    }
+    let linked = sqlx::query_as::<_, UserOut>(
+        "UPDATE mt_users
+         SET last_login_at = now(),
+             email_verified_at = COALESCE(email_verified_at, now())
+         WHERE google_sub = $1
+         RETURNING id, email::text AS email, full_name, phone_e164",
+    )
+    .bind(&profile.sub)
+    .fetch_optional(&state.pool)
+    .await?;
+    if let Some(user) = linked {
+        return Ok(user);
+    }
+
+    let existing = sqlx::query_as::<_, (Uuid, Option<String>)>(
+        "SELECT id, google_sub FROM mt_users WHERE email = $1",
+    )
+    .bind(&profile.email)
+    .fetch_optional(&state.pool)
+    .await?;
+    if let Some((id, google_sub)) = existing {
+        if google_sub.as_deref().is_some_and(|current| current != profile.sub) {
+            return Err(AppError::conflict(
+                "email already linked to another Google account",
+            ));
+        }
+        return Ok(sqlx::query_as::<_, UserOut>(
+            "UPDATE mt_users
+             SET google_sub = $2,
+                 last_login_at = now(),
+                 email_verified_at = COALESCE(email_verified_at, now())
+             WHERE id = $1
+             RETURNING id, email::text AS email, full_name, phone_e164",
+        )
+        .bind(id)
+        .bind(&profile.sub)
+        .fetch_one(&state.pool)
+        .await?);
+    }
+
+    let hash = hash_password(&Uuid::new_v4().to_string())?;
+    let user = sqlx::query_as::<_, UserOut>(
+        "INSERT INTO mt_users
+           (email, password_hash, full_name, google_sub, email_verified_at, last_login_at)
+         VALUES ($1,$2,$3,$4, now(), now())
+         RETURNING id, email::text AS email, full_name, phone_e164",
+    )
+    .bind(&profile.email)
+    .bind(&hash)
+    .bind(&profile.name)
+    .bind(&profile.sub)
+    .fetch_one(&state.pool)
+    .await
+    .map_err(|err| {
+        if err.to_string().contains("unique") {
+            AppError::conflict("email already registered")
+        } else {
+            AppError::from(err)
+        }
+    })?;
+    sqlx::query("INSERT INTO mt_account_preferences (user_id) VALUES ($1) ON CONFLICT DO NOTHING")
+        .bind(user.id)
+        .execute(&state.pool)
+        .await?;
+    insert_outbox(
+        &state.pool,
+        "orarepot.user.created",
+        "user",
+        user.id,
+        serde_json::json!({ "id": user.id, "email": user.email, "provider": "google" }),
+    )
+    .await?;
+    Ok(user)
+}
+
+async fn google_login(
+    State(state): State<AppState>,
+    Json(body): Json<GoogleBody>,
+) -> Result<Json<AuthOut>, AppError> {
+    if state.google_client_id.is_empty() || state.google_client_secret.is_empty() {
+        return Err(AppError::internal("Google OAuth is not configured"));
+    }
+    let code = body.code.trim();
+    if code.is_empty() {
+        return Err(AppError::bad("missing Google code"));
+    }
+    let profile = exchange_google_code(&state, code).await?;
+    let user = upsert_google_user(&state, &profile).await?;
     issue(&state, user, None).await
 }
 
