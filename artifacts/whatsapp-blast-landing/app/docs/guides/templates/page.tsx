@@ -1,7 +1,12 @@
-import type { Metadata } from 'next';
+import { pageMetadata } from '@/lib/seo';
 import { DocsArticle, DocsCodeBlock } from '@/components/docs/docs-article';
 
-export const metadata: Metadata = { title: 'Templates' };
+export const metadata = pageMetadata({
+  title: 'Template OTP WhatsApp',
+  description:
+    'Siapkan template OTP WhatsApp yang disetujui Meta sebelum kode verifikasi bisa dikirim.',
+  path: '/docs/guides/templates',
+});
 
 export default function Page() {
   return (

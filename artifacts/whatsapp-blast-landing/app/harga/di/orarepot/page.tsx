@@ -1,16 +1,12 @@
-import type { Metadata } from 'next';
 import { PricingPage } from '@/components/pricing/pricing-page';
+import { pageMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
-  title: 'Harga Paket Ora Repot',
+export const metadata = pageMetadata({
+  title: 'Harga WhatsApp OTP API dan Broadcast',
   description:
-    'Bandingkan paket OTP, Broadcast, dan Full Ora Repot. Official WABA Meta untuk broadcast dan OTP WhatsApp bisnis.',
-  openGraph: {
-    title: 'Harga Paket Ora Repot | ORAREPOT',
-    description:
-      'Bandingkan paket OTP, Broadcast, dan Full Ora Repot. Official WABA Meta untuk broadcast dan OTP WhatsApp bisnis.',
-  },
-};
+    'Bandingkan paket OTP, broadcast, dan lengkap Ora Repot. Harga untuk WhatsApp Business API resmi: kirim kode verifikasi dan kampanye.',
+  path: '/harga/di/orarepot',
+});
 
 export default function Page() {
   return <PricingPage />;

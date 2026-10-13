@@ -1,11 +1,16 @@
-import type { Metadata } from 'next';
 import {
   DocsArticle,
   DocsCards,
   DocsCodeTabs,
 } from '@/components/docs/docs-article';
+import { pageMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = { title: 'Overview' };
+export const metadata = pageMetadata({
+  title: 'WhatsApp OTP API',
+  description:
+    'Dokumentasi Ora Repot untuk mengirim OTP lewat WhatsApp Business API: REST, API key, dan webhook pengiriman.',
+  path: '/docs',
+});
 
 export default function Page() {
   return (

@@ -29,7 +29,7 @@ export const products: Product[] = [
     title: 'AI Assistant untuk customer relationship merchant WhatsApp',
     description:
       'Bantu merchant WhatsApp melayani pelanggan, jawab pertanyaan, dan jaga hubungan secara otomatis — tetap terasa manusiawi.',
-    seoTitle: 'Agentic AI Customer Relationship | ORAREPOT',
+    seoTitle: 'AI Assistant Customer Relationship WhatsApp',
     seoDescription:
       'AI Assistant Ora Repot membantu merchant WhatsApp menjaga customer relationship, balas chat, dan follow-up otomatis.',
     icon: Bot,
@@ -62,9 +62,9 @@ export const products: Product[] = [
     title: 'Broadcast & OTP resmi lewat WhatsApp Business API',
     description:
       'Kirim kampanye dan kode verifikasi lewat Official WABA Meta. Lebih aman, lebih profesional, risiko banned lebih rendah.',
-    seoTitle: 'WABA Messaging Broadcast & OTP | ORAREPOT',
+    seoTitle: 'WhatsApp OTP API dan Broadcast Bisnis',
     seoDescription:
-      'Layanan broadcast WhatsApp dan OTP resmi Meta untuk bisnis Indonesia. Official WABA, dashboard, dan setup dibantu tim Ora Repot.',
+      'API OTP WhatsApp dan broadcast kampanye lewat WhatsApp Business API resmi. Aplikasi kamu mengirim kode, pelanggan menerimanya di WhatsApp, lalu status kembali ke sistem kamu.',
     icon: Radio,
     highlights: [
       'Official WABA Meta',
@@ -95,7 +95,7 @@ export const products: Product[] = [
     title: 'Pulsa, voucher game, dan produk digital lainnya',
     description:
       'Satu tempat untuk kebutuhan digital sehari-hari: isi pulsa, beli voucher game, dan produk digital lain tanpa ribet.',
-    seoTitle: 'Pulsa dan Voucher Game | ORAREPOT',
+    seoTitle: 'Pulsa, Paket Data, dan Voucher Game',
     seoDescription:
       'Beli pulsa, paket data, voucher game, dan produk digital lainnya di Ora Repot — cepat dan sederhana.',
     icon: Ticket,

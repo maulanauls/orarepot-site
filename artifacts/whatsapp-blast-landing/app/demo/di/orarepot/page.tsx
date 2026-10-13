@@ -1,17 +1,13 @@
-import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { DemoPage } from '@/components/demo/demo-page';
+import { pageMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
-  title: 'Demo Produk',
+export const metadata = pageMetadata({
+  title: 'Demo WhatsApp OTP dan AI',
   description:
-    'Coba layanan Ora Repot: kirim OTP demo atau chat langsung ke WhatsApp bot AI.',
-  openGraph: {
-    title: 'Demo Produk | ORAREPOT',
-    description:
-      'Coba layanan Ora Repot: kirim OTP demo atau chat langsung ke WhatsApp bot AI.',
-  },
-};
+    'Coba Ora Repot: kirim OTP demo lewat WhatsApp atau chat langsung ke AI assistant.',
+  path: '/demo/di/orarepot',
+});
 
 export default function Page() {
   return (

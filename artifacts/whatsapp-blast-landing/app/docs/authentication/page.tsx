@@ -1,7 +1,12 @@
-import type { Metadata } from 'next';
+import { pageMetadata } from '@/lib/seo';
 import { DocsArticle, DocsCodeBlock } from '@/components/docs/docs-article';
 
-export const metadata: Metadata = { title: 'Authentication' };
+export const metadata = pageMetadata({
+  title: 'Autentikasi WhatsApp OTP API',
+  description:
+    'Cara memakai API key Ora Repot untuk mengirim OTP WhatsApp. Header Bearer dan daftar IP yang diizinkan.',
+  path: '/docs/authentication',
+});
 
 export default function Page() {
   return (

@@ -1,7 +1,12 @@
-import type { Metadata } from 'next';
+import { pageMetadata } from '@/lib/seo';
 import { DocsArticle, DocsCodeBlock } from '@/components/docs/docs-article';
 
-export const metadata: Metadata = { title: 'Send OTP' };
+export const metadata = pageMetadata({
+  title: 'Kirim OTP WhatsApp',
+  description:
+    'Referensi POST /v1/otp/send: nomor tujuan, nama template, dan kode verifikasi 4 sampai 8 digit.',
+  path: '/docs/otp/send',
+});
 
 export default function Page() {
   return (

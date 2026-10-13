@@ -1,2 +1,11 @@
 User-agent: *
 Allow: /
+Disallow: /dashboard
+Disallow: /admin
+Disallow: /pay
+Disallow: /sign-in
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /invite
+
+Sitemap: https://orarepot.com/sitemap.xml

@@ -1,7 +1,12 @@
-import type { Metadata } from 'next';
+import { pageMetadata } from '@/lib/seo';
 import { DocsArticle, DocsCodeBlock } from '@/components/docs/docs-article';
 
-export const metadata: Metadata = { title: 'Webhooks' };
+export const metadata = pageMetadata({
+  title: 'Webhook OTP WhatsApp',
+  description:
+    'Terima status OTP terkirim atau gagal lewat webhook Ora Repot, termasuk tanda tangan HMAC.',
+  path: '/docs/webhooks',
+});
 
 export default function Page() {
   return (

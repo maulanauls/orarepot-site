@@ -1,11 +1,16 @@
-import type { Metadata } from 'next';
 import {
   DocsArticle,
   DocsCards,
   DocsCodeTabs,
 } from '@/components/docs/docs-article';
+import { pageMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = { title: 'Quickstart' };
+export const metadata = pageMetadata({
+  title: 'Quickstart WhatsApp OTP API',
+  description:
+    'Kirim OTP WhatsApp pertama lewat API Ora Repot. Butuh template OTP aktif dan saldo deposit.',
+  path: '/docs/quickstart',
+});
 
 export default function Page() {
   return (

@@ -4,6 +4,7 @@ import { LocaleProvider } from '@/components/i18n/locale-provider';
 import { SiteChrome } from '@/components/layout/site-chrome';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { dashboardPoppins } from '@/lib/fonts/dashboard';
+import { organizationJsonLd } from '@/lib/seo';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -12,19 +13,23 @@ export const metadata: Metadata = {
     template: '%s | ORAREPOT',
   },
   description:
-    'Ora Repot menyatukan Agentic AI customer relationship, broadcast & OTP resmi WhatsApp (WABA), serta pembelian pulsa dan voucher digital.',
+    'WhatsApp OTP API dan broadcast lewat WhatsApp Business API resmi, plus AI assistant dan produk digital.',
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://orarepot.com',
   ),
   openGraph: {
     title: 'ORAREPOT',
-    description: 'AI Assistant, WABA messaging, dan digital goods dalam satu platform.',
+    description:
+      'WhatsApp OTP API dan broadcast lewat WhatsApp Business API resmi, plus AI assistant dan produk digital.',
     type: 'website',
+    images: [{ url: '/logo-orarepot-icon.png', alt: 'Ora Repot' }],
   },
   twitter: {
-    card: 'summary_large_image',
+    card: 'summary',
     title: 'ORAREPOT',
-    description: 'AI Assistant, WABA messaging, dan digital goods dalam satu platform.',
+    description:
+      'WhatsApp OTP API dan broadcast lewat WhatsApp Business API resmi, plus AI assistant dan produk digital.',
+    images: ['/logo-orarepot-icon.png'],
   },
   icons: {
     icon: [
@@ -47,6 +52,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       suppressHydrationWarning
     >
       <body className="antialiased m-0 min-h-full h-full w-full text-base text-foreground bg-background">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd()) }}
+        />
         <ThemeProvider
           attribute="class"
           defaultTheme="light"

@@ -1,7 +1,5 @@
-import type { Metadata } from 'next';
 import { DocsArticle, DocsCodeBlock } from '@/components/docs/docs-article';
-
-export const metadata: Metadata = { title: 'Errors' };
+import { Card, CardTable } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -10,7 +8,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Card, CardTable } from '@/components/ui/card';
+import { pageMetadata } from '@/lib/seo';
+
+export const metadata = pageMetadata({
+  title: 'Kode error OTP WhatsApp',
+  description:
+    'Daftar kode error API OTP WhatsApp Ora Repot. Cabang logika aplikasi berdasarkan kode, bukan pesan.',
+  path: '/docs/errors',
+});
 
 export default function Page() {
   return (
