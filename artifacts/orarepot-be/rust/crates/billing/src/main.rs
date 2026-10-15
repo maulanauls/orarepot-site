@@ -179,6 +179,7 @@ async fn list_invoices(
     Path(merchant_id): Path<Uuid>,
 ) -> Result<Json<Vec<InvoiceRow>>, AppError> {
     sync_merchant_pending(&state, merchant_id).await;
+    expire_due_payments(&state.pool, Some(merchant_id), None).await?;
     let rows = sqlx::query_as::<_, InvoiceRow>(
         "SELECT id, number, label, amount_idr, status::text AS status, issued_on
          FROM tx_invoices WHERE merchant_id = $1
@@ -217,6 +218,7 @@ async fn get_payment(
     .ok_or_else(|| AppError::not_found("payment"))?;
     if row.status == "pending" {
         sync_order(&state, &order_id).await;
+        expire_due_payments(&state.pool, None, Some(order_id.as_str())).await?;
         let refreshed = sqlx::query_as::<_, PaymentRow>(
             "SELECT id, merchant_id, order_id, amount_idr, status::text AS status,
                     snap_token, snap_redirect_url, paid_at
@@ -230,6 +232,37 @@ async fn get_payment(
         }
     }
     Ok(Json(row))
+}
+
+async fn expire_due_payments(
+    pool: &PgPool,
+    merchant_id: Option<Uuid>,
+    order_id: Option<&str>,
+) -> Result<(), AppError> {
+    let ids: Vec<Uuid> = sqlx::query_scalar(
+        "UPDATE tx_payments
+         SET status = 'expired'
+         WHERE status = 'pending'
+           AND expires_at <= now()
+           AND ($1::uuid IS NULL OR merchant_id = $1)
+           AND ($2::text IS NULL OR order_id = $2)
+         RETURNING id",
+    )
+    .bind(merchant_id)
+    .bind(order_id)
+    .fetch_all(pool)
+    .await?;
+    if ids.is_empty() {
+        return Ok(());
+    }
+    sqlx::query(
+        "UPDATE tx_invoices SET status = 'void'
+         WHERE payment_id = ANY($1) AND status = 'pending'",
+    )
+    .bind(&ids)
+    .execute(pool)
+    .await?;
+    Ok(())
 }
 
 async fn topup(

@@ -112,7 +112,12 @@ export function BillingPage() {
             setVa(null);
             fetchWallet().then(setAccount).catch(() => undefined);
             fetchInvoices().then(setInvoices).catch(() => undefined);
-          } else if (row.status === 'expired' || row.status === 'failed' || row.status === 'canceled') {
+          } else if (row.status === 'expired') {
+            setPayError(t('billing.sessionExpired'));
+            setQris(null);
+            setVa(null);
+            fetchInvoices().then(setInvoices).catch(() => undefined);
+          } else if (row.status === 'failed' || row.status === 'canceled') {
             setPayError(t('billing.errorLead'));
             setQris(null);
             setVa(null);
@@ -128,6 +133,7 @@ export function BillingPage() {
 
   const payAmount = custom ? Number(custom.replace(/\D/g, '')) || 0 : amount;
   const left = account ? remainingBalance(account) : 0;
+  const sessionOpen = !!qris || !!va;
 
   const canSubmit = useMemo(
     () => payAmount >= 10_000 && (!!method && (method !== 'va' || !!bank)),
@@ -316,12 +322,13 @@ export function BillingPage() {
                     <button
                       key={preset}
                       type="button"
+                      disabled={sessionOpen}
                       onClick={() => {
                         setAmount(preset);
                         setCustom('');
                       }}
                       className={cn(
-                        'rounded-md border px-3 py-2 text-sm font-medium transition-colors',
+                        'rounded-md border px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50',
                         !custom && amount === preset
                           ? 'border-primary bg-primary text-primary-foreground'
                           : 'border-border bg-card hover:bg-muted',
@@ -335,6 +342,7 @@ export function BillingPage() {
                   inputMode="numeric"
                   placeholder={t('billing.customAmount')}
                   value={custom}
+                  disabled={sessionOpen}
                   onChange={(e) => setCustom(e.target.value)}
                 />
               </div>
@@ -344,9 +352,10 @@ export function BillingPage() {
                 <div className="grid sm:grid-cols-2 gap-2">
                   <button
                     type="button"
+                    disabled={sessionOpen}
                     onClick={() => setMethod('qris')}
                     className={cn(
-                      'rounded-lg border px-4 py-3 text-start transition-colors',
+                      'rounded-lg border px-4 py-3 text-start transition-colors disabled:opacity-60',
                       method === 'qris'
                         ? 'border-primary bg-primary/5'
                         : 'border-border hover:bg-muted/60',
@@ -357,9 +366,10 @@ export function BillingPage() {
                   </button>
                   <button
                     type="button"
+                    disabled={sessionOpen}
                     onClick={() => setMethod('va')}
                     className={cn(
-                      'rounded-lg border px-4 py-3 text-start transition-colors',
+                      'rounded-lg border px-4 py-3 text-start transition-colors disabled:opacity-60',
                       method === 'va'
                         ? 'border-primary bg-primary/5'
                         : 'border-border hover:bg-muted/60',
@@ -375,9 +385,10 @@ export function BillingPage() {
                       <button
                         key={item.id}
                         type="button"
+                        disabled={sessionOpen}
                         onClick={() => setBank(item.id)}
                         className={cn(
-                          'flex items-center gap-2.5 rounded-lg border px-3 py-2.5 text-start transition-colors',
+                          'flex items-center gap-2.5 rounded-lg border px-3 py-2.5 text-start transition-colors disabled:opacity-60',
                           bank === item.id
                             ? 'border-primary bg-primary/5 ring-1 ring-primary'
                             : 'border-border hover:bg-muted/60',
@@ -515,11 +526,21 @@ export function BillingPage() {
                       </td>
                       <td className="px-5 py-3">
                         <Badge
-                          variant={inv.status === 'paid' ? 'success' : 'warning'}
+                          variant={
+                            inv.status === 'paid'
+                              ? 'success'
+                              : inv.status === 'void'
+                                ? 'secondary'
+                                : 'warning'
+                          }
                           appearance="light"
                           size="sm"
                         >
-                          {inv.status === 'paid' ? t('billing.paid') : t('billing.pending')}
+                          {inv.status === 'paid'
+                            ? t('billing.paid')
+                            : inv.status === 'void'
+                              ? t('billing.expired')
+                              : t('billing.pending')}
                         </Badge>
                       </td>
                       <td className="px-5 py-3 text-end font-medium">{formatIdr(inv.amount)}</td>
