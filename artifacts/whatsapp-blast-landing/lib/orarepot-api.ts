@@ -448,7 +448,7 @@ export async function fetchInvoices(): Promise<Invoice[]> {
     id: row.number || row.id,
     label: row.label,
     date: row.issued_on,
-    status: row.status === 'paid' ? 'paid' : 'pending',
+    status: row.status === 'paid' ? 'paid' : row.status === 'void' ? 'void' : 'pending',
     amount: Number(row.amount_idr ?? 0),
   }));
 }

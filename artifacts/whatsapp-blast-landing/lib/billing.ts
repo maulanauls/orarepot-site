@@ -29,7 +29,7 @@ export type Invoice = {
   id: string;
   label: string;
   date: string;
-  status: 'paid' | 'pending';
+  status: 'paid' | 'pending' | 'void';
   amount: number;
 };
 
