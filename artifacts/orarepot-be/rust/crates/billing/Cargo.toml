@@ -18,3 +18,5 @@ hex.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 tower-http.workspace = true
+qrcode = { version = "0.14", features = ["image"] }
+image = { version = "0.25", default-features = false, features = ["png"] }

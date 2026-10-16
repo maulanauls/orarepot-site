@@ -393,12 +393,15 @@ export type TopupPending = {
   biller_code?: string | null;
   snap_token?: string | null;
   redirect_url?: string | null;
+  expires_at?: string | null;
+  emailed?: boolean;
 };
 
 export async function createTopup(input: {
   amountIdr: number;
   customerName: string;
   customerRef?: string;
+  customerEmail?: string;
   language?: string;
   origin?: string;
   method?: 'qris' | 'va';
@@ -412,6 +415,7 @@ export async function createTopup(input: {
       amount_idr: input.amountIdr,
       customer_name: input.customerName,
       customer_ref: input.customerRef,
+      customer_email: input.customerEmail,
       language: input.language,
       origin: input.origin,
       method: input.method,
@@ -433,6 +437,12 @@ export type PaymentRow = {
   status: string;
   snap_token?: string | null;
   paid_at?: string | null;
+  payment_type?: string | null;
+  expires_at?: string | null;
+  qr_string?: string | null;
+  va_number?: string | null;
+  biller_code?: string | null;
+  bank?: string | null;
 };
 
 export async function fetchPayment(orderId: string): Promise<PaymentRow> {
@@ -442,7 +452,17 @@ export async function fetchPayment(orderId: string): Promise<PaymentRow> {
 export async function fetchInvoices(): Promise<Invoice[]> {
   const merchantId = await resolveMerchantId();
   const rows = await api<
-    { id: string; number: string; label: string; amount_idr: number; status: string; issued_on: string }[]
+    {
+      id: string;
+      number: string;
+      label: string;
+      amount_idr: number;
+      status: string;
+      issued_on: string;
+      order_id?: string | null;
+      payment_type?: string | null;
+      expires_at?: string | null;
+    }[]
   >(`/billing/invoices/${merchantId}`);
   return (rows ?? []).map((row) => ({
     id: row.number || row.id,
@@ -450,6 +470,9 @@ export async function fetchInvoices(): Promise<Invoice[]> {
     date: row.issued_on,
     status: row.status === 'paid' ? 'paid' : row.status === 'void' ? 'void' : 'pending',
     amount: Number(row.amount_idr ?? 0),
+    orderId: row.order_id || undefined,
+    paymentType: row.payment_type || undefined,
+    expiresAt: row.expires_at || undefined,
   }));
 }
 

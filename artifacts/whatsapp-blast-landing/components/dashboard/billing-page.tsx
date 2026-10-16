@@ -9,6 +9,14 @@ import { useLocale } from '@/components/i18n/locale-provider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   Card,
   CardContent,
   CardFooter,
@@ -33,7 +41,7 @@ import {
 } from '@/lib/billing';
 import { midtransLanguage } from '@/lib/midtrans';
 import { loadMidtransSnap } from '@/lib/midtrans-snap';
-import { createTopup, fetchInvoices, fetchPayment, fetchWallet } from '@/lib/orarepot-api';
+import { createTopup, fetchInvoices, fetchPayment, fetchWallet, type PaymentRow } from '@/lib/orarepot-api';
 import { getStoredUser } from '@/lib/session';
 import { cn } from '@/lib/utils';
 
@@ -45,6 +53,22 @@ function featureMeta(feature: BillingFeature) {
     return { icon: Radio, titleKey: 'billing.featBroadcast', unitKey: 'billing.unitBroadcast' };
   }
   return { icon: ShieldCheck, titleKey: 'billing.featOtp', unitKey: 'billing.unitOtp' };
+}
+
+function orderIdOf(inv: Invoice) {
+  if (inv.orderId) return inv.orderId;
+  const match = inv.label.match(/ORP-[0-9a-f]+/i);
+  return match?.[0];
+}
+
+function canReopenInvoice(inv: Invoice) {
+  if (inv.status !== 'pending' || !orderIdOf(inv)) return false;
+  return (
+    !inv.paymentType ||
+    inv.paymentType === 'qris' ||
+    inv.paymentType === 'bank_transfer' ||
+    inv.paymentType === 'echannel'
+  );
 }
 
 export function BillingPage() {
@@ -63,6 +87,7 @@ export function BillingPage() {
     orderId: string;
     amount: number;
     qr: string;
+    expiresAt?: string;
   } | null>(null);
   const [va, setVa] = useState<{
     orderId: string;
@@ -71,7 +96,11 @@ export function BillingPage() {
     bank: string;
     number: string;
     billerCode?: string;
+    expiresAt?: string;
   } | null>(null);
+  const [payOpen, setPayOpen] = useState(false);
+  const [openingOrder, setOpeningOrder] = useState('');
+  const [emailedTo, setEmailedTo] = useState('');
   const [payPaid, setPayPaid] = useState(false);
   const watchOrder = qris?.orderId ?? va?.orderId ?? '';
 
@@ -108,17 +137,23 @@ export function BillingPage() {
           if (cancelled) return;
           if (row.status === 'paid') {
             setPayPaid(true);
+            setPayOpen(false);
+            setEmailedTo('');
             setQris(null);
             setVa(null);
             fetchWallet().then(setAccount).catch(() => undefined);
             fetchInvoices().then(setInvoices).catch(() => undefined);
           } else if (row.status === 'expired') {
             setPayError(t('billing.sessionExpired'));
+            setPayOpen(false);
+            setEmailedTo('');
             setQris(null);
             setVa(null);
             fetchInvoices().then(setInvoices).catch(() => undefined);
           } else if (row.status === 'failed' || row.status === 'canceled') {
             setPayError(t('billing.errorLead'));
+            setPayOpen(false);
+            setEmailedTo('');
             setQris(null);
             setVa(null);
           }
@@ -133,12 +168,85 @@ export function BillingPage() {
 
   const payAmount = custom ? Number(custom.replace(/\D/g, '')) || 0 : amount;
   const left = account ? remainingBalance(account) : 0;
-  const sessionOpen = !!qris || !!va;
+  const liveSession = !!qris || !!va;
+  const pendingInvoice = invoices.find(canReopenInvoice);
+  const sessionOpen = liveSession || !!pendingInvoice;
 
   const canSubmit = useMemo(
     () => payAmount >= 10_000 && (!!method && (method !== 'va' || !!bank)),
     [payAmount, method, bank],
   );
+
+  function showPayment(row: PaymentRow) {
+    const expiresAt = row.expires_at || undefined;
+    if (row.qr_string) {
+      setVa(null);
+      setQris({
+        orderId: row.order_id,
+        amount: Number(row.amount_idr),
+        qr: row.qr_string,
+        expiresAt,
+      });
+      setPayOpen(true);
+      return true;
+    }
+    if (row.va_number) {
+      const bankId = (row.bank || 'bca').toLowerCase();
+      const known = VA_BANKS.find((item) => item.id === bankId);
+      setQris(null);
+      setVa({
+        orderId: row.order_id,
+        amount: Number(row.amount_idr),
+        bankId,
+        bank: known?.label || bankId.toUpperCase(),
+        number: row.va_number,
+        billerCode: row.biller_code || undefined,
+        expiresAt,
+      });
+      setPayOpen(true);
+      return true;
+    }
+    return false;
+  }
+
+  async function openPending(inv: Invoice) {
+    const orderId = orderIdOf(inv);
+    if (inv.status !== 'pending' || !orderId) return;
+    if (qris?.orderId === orderId || va?.orderId === orderId) {
+      setPayOpen(true);
+      return;
+    }
+    setOpeningOrder(orderId);
+    setPayError('');
+    setPayPaid(false);
+    try {
+      const row = await fetchPayment(orderId);
+      if (row.status === 'paid') {
+        setPayPaid(true);
+        setPayOpen(false);
+        setEmailedTo('');
+        setQris(null);
+        setVa(null);
+        fetchWallet().then(setAccount).catch(() => undefined);
+        fetchInvoices().then(setInvoices).catch(() => undefined);
+        return;
+      }
+      if (row.status !== 'pending' || !showPayment(row)) {
+        setPayError(
+          row.status === 'pending' ? t('billing.reopenMissing') : t('billing.sessionExpired'),
+        );
+        setPayOpen(false);
+        setEmailedTo('');
+        setQris(null);
+        setVa(null);
+        fetchInvoices().then(setInvoices).catch(() => undefined);
+      }
+    } catch {
+      setPayError(t('billing.errorLead'));
+    } finally {
+      setOpeningOrder('');
+    }
+  }
 
   async function onTopup() {
     if (!canSubmit) return;
@@ -149,6 +257,7 @@ export function BillingPage() {
       const user = getStoredUser();
       const customerName = user?.full_name || user?.email || 'Merchant';
       const customerRef = user?.email?.split('@')[0] || 'ORAREPOT';
+      const customerEmail = user?.email || '';
       createPaySession({
         amount: payAmount,
         method,
@@ -161,11 +270,13 @@ export function BillingPage() {
         amountIdr: payAmount,
         customerName,
         customerRef,
+        customerEmail,
         language: snapLanguage,
         origin: window.location.origin,
         method,
         bank: method === 'va' ? bank : undefined,
       });
+      setEmailedTo(pending.emailed && customerEmail ? customerEmail : '');
 
       if (method === 'qris' && pending.qr_string) {
         setVa(null);
@@ -173,21 +284,29 @@ export function BillingPage() {
           orderId: pending.order_id,
           amount: pending.amount_idr,
           qr: pending.qr_string,
+          expiresAt: pending.expires_at || undefined,
         });
+        setPayOpen(true);
+        fetchInvoices().then(setInvoices).catch(() => undefined);
         setSubmitting(false);
         return;
       }
 
       if (method === 'va' && pending.va_number) {
+        const bankId = (pending.bank || bank).toLowerCase();
+        const known = VA_BANKS.find((item) => item.id === bankId);
         setQris(null);
         setVa({
           orderId: pending.order_id,
           amount: pending.amount_idr,
-          bankId: (pending.bank || bank).toLowerCase(),
-          bank: (pending.bank || bank).toUpperCase(),
+          bankId,
+          bank: known?.label || bankId.toUpperCase(),
           number: pending.va_number,
           billerCode: pending.biller_code || undefined,
+          expiresAt: pending.expires_at || undefined,
         });
+        setPayOpen(true);
+        fetchInvoices().then(setInvoices).catch(() => undefined);
         setSubmitting(false);
         return;
       }
@@ -401,31 +520,27 @@ export function BillingPage() {
                   </div>
                 ) : null}
               </div>
-              {qris ? (
-                <QrisPanel
-                  qr={qris.qr}
-                  amountLabel={formatIdr(qris.amount)}
-                  orderId={qris.orderId}
-                  title={t('billing.qrisTitle')}
-                  wait={t('billing.qrisWait')}
-                />
-              ) : null}
-              {va ? (
-                <VaPanel
-                  bankId={va.bankId}
-                  bank={va.bank}
-                  number={va.number}
-                  billerCode={va.billerCode}
-                  amountLabel={formatIdr(va.amount)}
-                  orderId={va.orderId}
-                  title={t('billing.vaTitle')}
-                  numberLabel={t('billing.vaNumber')}
-                  billerLabel={t('billing.vaBiller')}
-                  billKeyLabel={t('billing.vaBillKey')}
-                  wait={t('billing.vaWait')}
-                  copyLabel={t('billing.vaCopy')}
-                  copiedLabel={t('billing.vaCopied')}
-                />
+              {sessionOpen && !(payOpen && liveSession) ? (
+                <div className="rounded-lg border border-border px-4 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-medium m-0">{t('billing.sessionWaiting')}</p>
+                    <PayTimer
+                      expiresAt={qris?.expiresAt ?? va?.expiresAt ?? pendingInvoice?.expiresAt}
+                      label={t('billing.timeLeft')}
+                      compact
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    disabled={!!openingOrder}
+                    onClick={() => {
+                      if (liveSession) setPayOpen(true);
+                      else if (pendingInvoice) void openPending(pendingInvoice);
+                    }}
+                  >
+                    {t('billing.reopenPay')}
+                  </Button>
+                </div>
               ) : null}
               {payPaid ? (
                 <p className="text-sm text-primary m-0">{t('billing.qrisPaid')}</p>
@@ -509,8 +624,30 @@ export function BillingPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {invoices.map((inv) => (
-                    <tr key={inv.id} className="border-b border-border last:border-0">
+                  {invoices.map((inv) => {
+                    const orderId = orderIdOf(inv);
+                    const reopenable = canReopenInvoice(inv);
+                    const opening = openingOrder === orderId;
+                    return (
+                    <tr
+                      key={inv.id}
+                      tabIndex={reopenable ? 0 : undefined}
+                      onClick={() => {
+                        if (reopenable && !opening) void openPending(inv);
+                      }}
+                      onKeyDown={(event) => {
+                        if (!reopenable || opening) return;
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          void openPending(inv);
+                        }
+                      }}
+                      className={cn(
+                        'border-b border-border last:border-0',
+                        reopenable && 'cursor-pointer hover:bg-muted/50',
+                        opening && 'opacity-60',
+                      )}
+                    >
                       <td className="px-5 py-3">
                         <span className="inline-flex items-center gap-2">
                           <FileText className="size-4 text-muted-foreground" />
@@ -525,34 +662,128 @@ export function BillingPage() {
                         })}
                       </td>
                       <td className="px-5 py-3">
-                        <Badge
-                          variant={
-                            inv.status === 'paid'
-                              ? 'success'
+                        {reopenable ? (
+                          <span className="inline-flex items-center gap-2">
+                            <Badge variant="warning" appearance="light" size="sm">
+                              {t('billing.pending')}
+                            </Badge>
+                            <span className="text-xs font-medium text-primary">
+                              {t('billing.reopenPay')}
+                            </span>
+                          </span>
+                        ) : (
+                          <Badge
+                            variant={
+                              inv.status === 'paid'
+                                ? 'success'
+                                : inv.status === 'void'
+                                  ? 'secondary'
+                                  : 'warning'
+                            }
+                            appearance="light"
+                            size="sm"
+                          >
+                            {inv.status === 'paid'
+                              ? t('billing.paid')
                               : inv.status === 'void'
-                                ? 'secondary'
-                                : 'warning'
-                          }
-                          appearance="light"
-                          size="sm"
-                        >
-                          {inv.status === 'paid'
-                            ? t('billing.paid')
-                            : inv.status === 'void'
-                              ? t('billing.expired')
-                              : t('billing.pending')}
-                        </Badge>
+                                ? t('billing.expired')
+                                : t('billing.pending')}
+                          </Badge>
+                        )}
                       </td>
                       <td className="px-5 py-3 text-end font-medium">{formatIdr(inv.amount)}</td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           </CardContent>
         </Card>
       </div>
+      <Dialog open={payOpen && liveSession} onOpenChange={setPayOpen}>
+        <DialogContent variant="fullscreen" className="overflow-y-auto">
+          <DialogHeader className="items-center text-center">
+            <DialogTitle>{qris ? t('billing.qrisTitle') : t('billing.vaTitle')}</DialogTitle>
+            <DialogDescription>{t('billing.modalKeep')}</DialogDescription>
+            {emailedTo ? (
+              <p className="text-sm text-muted-foreground m-0">{t('billing.emailSent', { email: emailedTo })}</p>
+            ) : null}
+          </DialogHeader>
+          <DialogBody className="mx-auto flex w-full max-w-md flex-col items-center gap-5">
+            <PayTimer
+              expiresAt={qris?.expiresAt ?? va?.expiresAt}
+              label={t('billing.timeLeft')}
+            />
+            {qris ? (
+              <QrisPanel
+                qr={qris.qr}
+                amountLabel={formatIdr(qris.amount)}
+                orderId={qris.orderId}
+                title={t('billing.qrisTitle')}
+                wait={t('billing.qrisWait')}
+              />
+            ) : null}
+            {va ? (
+              <VaPanel
+                bankId={va.bankId}
+                bank={va.bank}
+                number={va.number}
+                billerCode={va.billerCode}
+                amountLabel={formatIdr(va.amount)}
+                orderId={va.orderId}
+                title={t('billing.vaTitle')}
+                numberLabel={t('billing.vaNumber')}
+                billerLabel={t('billing.vaBiller')}
+                billKeyLabel={t('billing.vaBillKey')}
+                wait={t('billing.vaWait')}
+                copyLabel={t('billing.vaCopy')}
+                copiedLabel={t('billing.vaCopied')}
+              />
+            ) : null}
+          </DialogBody>
+        </DialogContent>
+      </Dialog>
     </DashboardShell>
+  );
+}
+
+function PayTimer({
+  expiresAt,
+  label,
+  compact = false,
+}: {
+  expiresAt?: string;
+  label: string;
+  compact?: boolean;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  if (!expiresAt) return null;
+  const left = Math.max(0, new Date(expiresAt).getTime() - now);
+  const minutes = Math.floor(left / 60000);
+  const seconds = Math.floor((left % 60000) / 1000);
+  const clock = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  const urgent = left > 0 && left < 5 * 60 * 1000;
+
+  if (compact) {
+    return (
+      <p className={cn('text-sm text-mono m-0 mt-1', urgent && 'text-destructive')}>
+        {label} {clock}
+      </p>
+    );
+  }
+
+  return (
+    <div className={cn('text-center', urgent && 'text-destructive')}>
+      <p className="text-xs uppercase tracking-wide text-muted-foreground m-0">{label}</p>
+      <p className="text-4xl font-semibold text-mono m-0 mt-1 tabular-nums">{clock}</p>
+    </div>
   );
 }
 

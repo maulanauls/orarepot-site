@@ -31,6 +31,9 @@ export type Invoice = {
   date: string;
   status: 'paid' | 'pending' | 'void';
   amount: number;
+  orderId?: string;
+  paymentType?: string;
+  expiresAt?: string;
 };
 
 export const FEATURES: BillingFeature[] = ['ai', 'broadcast', 'otp'];

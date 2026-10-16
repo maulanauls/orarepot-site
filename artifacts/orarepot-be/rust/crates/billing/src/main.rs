@@ -12,6 +12,8 @@ use std::net::SocketAddr;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use uuid::Uuid;
 
+mod mail;
+
 #[derive(Clone)]
 struct AppState {
     pool: PgPool,
@@ -51,6 +53,7 @@ struct Topup {
     origin: Option<String>,
     method: Option<String>,
     bank: Option<String>,
+    customer_email: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -172,6 +175,9 @@ struct InvoiceRow {
     amount_idr: i64,
     status: String,
     issued_on: chrono::NaiveDate,
+    order_id: Option<String>,
+    payment_type: Option<String>,
+    expires_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 async fn list_invoices(
@@ -181,9 +187,12 @@ async fn list_invoices(
     sync_merchant_pending(&state, merchant_id).await;
     expire_due_payments(&state.pool, Some(merchant_id), None).await?;
     let rows = sqlx::query_as::<_, InvoiceRow>(
-        "SELECT id, number, label, amount_idr, status::text AS status, issued_on
-         FROM tx_invoices WHERE merchant_id = $1
-         ORDER BY issued_on DESC, created_at DESC LIMIT 50",
+        "SELECT i.id, i.number, i.label, i.amount_idr, i.status::text AS status, i.issued_on,
+                p.order_id, p.midtrans_payment_type AS payment_type, p.expires_at
+         FROM tx_invoices i
+         LEFT JOIN tx_payments p ON p.id = i.payment_id
+         WHERE i.merchant_id = $1
+         ORDER BY i.issued_on DESC, i.created_at DESC LIMIT 50",
     )
     .bind(merchant_id)
     .fetch_all(&state.pool)
@@ -201,17 +210,36 @@ struct PaymentRow {
     snap_token: Option<String>,
     snap_redirect_url: Option<String>,
     paid_at: Option<chrono::DateTime<chrono::Utc>>,
+    payment_type: Option<String>,
+    expires_at: chrono::DateTime<chrono::Utc>,
+    qr_string: Option<String>,
+    va_number: Option<String>,
+    biller_code: Option<String>,
+    bank: Option<String>,
 }
+
+const PAYMENT_SELECT: &str = "SELECT id, merchant_id, order_id, amount_idr, status::text AS status,
+        snap_token, snap_redirect_url, paid_at,
+        midtrans_payment_type AS payment_type,
+        expires_at,
+        NULLIF(midtrans_payload->>'qr_string', '') AS qr_string,
+        NULLIF(COALESCE(
+            midtrans_payload->'va_numbers'->0->>'va_number',
+            midtrans_payload->>'permata_va_number',
+            midtrans_payload->>'bill_key'
+        ), '') AS va_number,
+        NULLIF(midtrans_payload->>'biller_code', '') AS biller_code,
+        NULLIF(COALESCE(
+            midtrans_payload->'va_numbers'->0->>'bank',
+            CASE WHEN midtrans_payment_type = 'echannel' THEN 'mandiri' END
+        ), '') AS bank
+ FROM tx_payments WHERE order_id = $1";
 
 async fn get_payment(
     State(state): State<AppState>,
     Path(order_id): Path<String>,
 ) -> Result<Json<PaymentRow>, AppError> {
-    let row = sqlx::query_as::<_, PaymentRow>(
-        "SELECT id, merchant_id, order_id, amount_idr, status::text AS status,
-                snap_token, snap_redirect_url, paid_at
-         FROM tx_payments WHERE order_id = $1",
-    )
+    let row = sqlx::query_as::<_, PaymentRow>(PAYMENT_SELECT)
     .bind(&order_id)
     .fetch_optional(&state.pool)
     .await?
@@ -219,11 +247,7 @@ async fn get_payment(
     if row.status == "pending" {
         sync_order(&state, &order_id).await;
         expire_due_payments(&state.pool, None, Some(order_id.as_str())).await?;
-        let refreshed = sqlx::query_as::<_, PaymentRow>(
-            "SELECT id, merchant_id, order_id, amount_idr, status::text AS status,
-                    snap_token, snap_redirect_url, paid_at
-             FROM tx_payments WHERE order_id = $1",
-        )
+        let refreshed = sqlx::query_as::<_, PaymentRow>(PAYMENT_SELECT)
         .bind(&order_id)
         .fetch_optional(&state.pool)
         .await?;
@@ -263,6 +287,45 @@ async fn expire_due_payments(
     .execute(pool)
     .await?;
     Ok(())
+}
+
+async fn email_payment_instructions(
+    state: &AppState,
+    body: &Topup,
+    language: &str,
+    order_id: &str,
+    expires_at: chrono::DateTime<chrono::Utc>,
+    channel: mail::PaymentChannel,
+) -> bool {
+    let to_email = mail::normalize_email(body.customer_email.as_deref());
+    if to_email.is_empty() {
+        return false;
+    }
+    let billing_url = format!(
+        "{}/dashboard/billing",
+        state.public_app_url.trim_end_matches('/')
+    );
+    let notice = mail::PaymentNotice {
+        to_email,
+        to_name: body.customer_name.clone(),
+        language: language.to_string(),
+        order_id: order_id.to_string(),
+        amount_idr: body.amount_idr,
+        expires_at,
+        billing_url,
+        channel,
+    };
+    match mail::send_payment_email(&state.http, &notice).await {
+        Ok(()) => true,
+        Err(err) if err == "mailjet is not set" => {
+            tracing::info!(order_id, "payment email skipped, mailjet is not set");
+            false
+        }
+        Err(err) => {
+            tracing::warn!(order_id, error = %err, "payment email failed");
+            false
+        }
+    }
 }
 
 async fn topup(
@@ -314,6 +377,13 @@ async fn topup(
     .await?;
     tx.commit().await?;
 
+    let expires_at: chrono::DateTime<chrono::Utc> = sqlx::query_scalar(
+        "SELECT expires_at FROM tx_payments WHERE id = $1",
+    )
+    .bind(payment_id)
+    .fetch_one(&state.pool)
+    .await?;
+
     let origin = body
         .origin
         .as_deref()
@@ -354,6 +424,17 @@ async fn topup(
                 .bind(&charge.payload)
                 .execute(&state.pool)
                 .await?;
+                let emailed = email_payment_instructions(
+                    &state,
+                    &body,
+                    language,
+                    &order_id,
+                    expires_at,
+                    mail::PaymentChannel::Qris {
+                        qr_string: charge.qr_string.clone(),
+                    },
+                )
+                .await;
                 return Ok(Json(serde_json::json!({
                     "payment_id": payment_id,
                     "order_id": order_id,
@@ -361,7 +442,9 @@ async fn topup(
                     "amount_idr": body.amount_idr,
                     "payment_type": "qris",
                     "qr_string": charge.qr_string,
-                    "qr_url": charge.qr_url
+                    "qr_url": charge.qr_url,
+                    "expires_at": expires_at,
+                    "emailed": emailed
                 })));
             }
             Err(err) => {
@@ -412,6 +495,19 @@ async fn topup(
                 .bind(&charge.payload)
                 .execute(&state.pool)
                 .await?;
+                let emailed = email_payment_instructions(
+                    &state,
+                    &body,
+                    language,
+                    &order_id,
+                    expires_at,
+                    mail::PaymentChannel::Va {
+                        bank: charge.bank.clone(),
+                        va_number: charge.va_number.clone(),
+                        biller_code: charge.biller_code.clone(),
+                    },
+                )
+                .await;
                 return Ok(Json(serde_json::json!({
                     "payment_id": payment_id,
                     "order_id": order_id,
@@ -420,7 +516,9 @@ async fn topup(
                     "payment_type": charge.payment_type,
                     "bank": charge.bank,
                     "va_number": charge.va_number,
-                    "biller_code": charge.biller_code
+                    "biller_code": charge.biller_code,
+                    "expires_at": expires_at,
+                    "emailed": emailed
                 })));
             }
             Err(err) => {
