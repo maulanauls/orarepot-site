@@ -18,8 +18,8 @@ import { cn } from '@/lib/utils';
 type ServiceTab = 'otp' | 'bot';
 
 /** Ganti nomor ini ke WhatsApp bot demo Ora Repot */
-const DEMO_BOT_NUMBER = '6281234567890';
-const DEMO_BOT_DISPLAY = '0812-3456-7890';
+const DEMO_BOT_NUMBER = '62881080249031';
+const DEMO_BOT_DISPLAY = '+62 881 0802 49031';
 const DEMO_OTP = '482915';
 
 function resolveTab(minat: string | null): ServiceTab {

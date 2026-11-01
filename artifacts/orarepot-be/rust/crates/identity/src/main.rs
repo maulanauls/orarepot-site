@@ -20,10 +20,12 @@ use std::net::SocketAddr;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use uuid::Uuid;
 
+mod store;
+
 #[derive(Clone)]
-struct AppState {
-    pool: PgPool,
-    cfg: AppCfg,
+pub(crate) struct AppState {
+    pub(crate) pool: PgPool,
+    pub(crate) cfg: AppCfg,
     http: reqwest::Client,
     stub: bool,
     graph_version: String,
@@ -100,6 +102,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/auth/reset-password", post(reset_password))
         .route("/auth/logout", post(logout))
         .route("/auth/me", get(me).patch(update_me))
+        .route("/auth/store/register", post(store::register))
+        .route("/auth/store/login", post(store::login))
+        .route("/auth/store/me", get(store::me))
         .with_state(state)
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http());
@@ -110,7 +115,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn hash_password(password: &str) -> Result<String, AppError> {
+pub(crate) fn hash_password(password: &str) -> Result<String, AppError> {
     let salt = SaltString::generate(&mut OsRng);
     Argon2::default()
         .hash_password(password.as_bytes(), &salt)
@@ -118,7 +123,7 @@ fn hash_password(password: &str) -> Result<String, AppError> {
         .map_err(|e| AppError::internal(e.to_string()))
 }
 
-fn verify_password(password: &str, hash: &str) -> bool {
+pub(crate) fn verify_password(password: &str, hash: &str) -> bool {
     PasswordHash::new(hash)
         .ok()
         .and_then(|parsed| Argon2::default().verify_password(password.as_bytes(), &parsed).ok())
@@ -523,7 +528,7 @@ struct ResetBody {
     password: String,
 }
 
-fn to_e164(raw: &str) -> Option<String> {
+pub(crate) fn to_e164(raw: &str) -> Option<String> {
     let trimmed = raw.trim();
     if trimmed.is_empty() {
         return None;

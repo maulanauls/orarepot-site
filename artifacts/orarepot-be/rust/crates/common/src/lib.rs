@@ -35,6 +35,53 @@ impl AppCfg {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct StoreJwtClaims {
+    pub sub: String,
+    pub email: String,
+    pub role: String,
+    pub merchant_id: String,
+    pub exp: i64,
+    pub iat: i64,
+}
+
+pub fn sign_store_jwt(
+    cfg: &AppCfg,
+    customer_id: Uuid,
+    email: &str,
+    merchant_id: Uuid,
+) -> Result<String, AppError> {
+    let now = Utc::now();
+    let claims = StoreJwtClaims {
+        sub: customer_id.to_string(),
+        email: email.to_string(),
+        role: "customer".into(),
+        merchant_id: merchant_id.to_string(),
+        iat: now.timestamp(),
+        exp: (now + Duration::hours(12)).timestamp(),
+    };
+    encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(cfg.jwt_secret.as_bytes()),
+    )
+    .map_err(|e| AppError::internal(e.to_string()))
+}
+
+pub fn decode_store_jwt(cfg: &AppCfg, token: &str) -> Result<StoreJwtClaims, AppError> {
+    let claims = decode::<StoreJwtClaims>(
+        token,
+        &DecodingKey::from_secret(cfg.jwt_secret.as_bytes()),
+        &Validation::default(),
+    )
+    .map(|d| d.claims)
+    .map_err(|_| AppError::unauthorized("invalid token"))?;
+    if claims.role != "customer" {
+        return Err(AppError::unauthorized("customer token required"));
+    }
+    Ok(claims)
+}
+
 pub fn sign_jwt(cfg: &AppCfg, user_id: Uuid, email: &str) -> Result<String, AppError> {
     let now = Utc::now();
     let claims = JwtClaims {
