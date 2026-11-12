@@ -118,6 +118,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/biller/orders/{code}", get(orders::get_order))
         .route("/biller/orders/{code}/pay", post(orders::pay_order))
         .route("/biller/wallet", get(orders::wallet))
+        .route("/biller/wallet/ledger", get(orders::wallet_ledger))
         .with_state(state)
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http());

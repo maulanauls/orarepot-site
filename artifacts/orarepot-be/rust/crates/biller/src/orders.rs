@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{header::AUTHORIZATION, HeaderMap},
     Json,
 };
@@ -636,27 +636,53 @@ pub async fn get_order(
     Ok(Json(present(&state.pool, user, row).await?))
 }
 
+#[derive(Deserialize)]
+pub struct ListOrdersQuery {
+    #[serde(default)]
+    offset: i64,
+    #[serde(default)]
+    limit: i64,
+}
+
 #[derive(Serialize)]
 pub struct OrderList {
     orders: Vec<OrderOut>,
+    offset: i64,
+    limit: i64,
+    has_more: bool,
 }
 
-pub async fn list_orders(State(state): State<AppState>, headers: HeaderMap) -> Result<Json<OrderList>, AppError> {
+pub async fn list_orders(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<ListOrdersQuery>,
+) -> Result<Json<OrderList>, AppError> {
     let user = user_of(&state, &headers)?;
+    let offset = query.offset.max(0);
+    let limit = query.limit.clamp(1, 50);
+    // Fetch one extra row to know if another page exists.
     let rows = sqlx::query_as::<_, OrderRow>(&format!(
-        "{ORDER_SELECT} WHERE b.user_idf = $1 ORDER BY b.created_at DESC LIMIT 20"
+        "{ORDER_SELECT} WHERE b.user_idf = $1 ORDER BY b.created_at DESC LIMIT $2 OFFSET $3"
     ))
     .bind(user)
+    .bind(limit + 1)
+    .bind(offset)
     .fetch_all(&state.pool)
     .await?;
+    let has_more = rows.len() as i64 > limit;
     let balance = wallet_balance(&state.pool, user).await?;
-    let mut orders = Vec::with_capacity(rows.len());
-    for row in rows {
+    let mut orders = Vec::with_capacity(limit as usize);
+    for row in rows.into_iter().take(limit as usize) {
         let mut out = present_light(row);
         out.wallet_balance = balance;
         orders.push(out);
     }
-    Ok(Json(OrderList { orders }))
+    Ok(Json(OrderList {
+        orders,
+        offset,
+        limit,
+        has_more,
+    }))
 }
 
 fn present_light(row: OrderRow) -> OrderOut {
@@ -691,9 +717,69 @@ pub struct WalletOut {
     balance: i64,
 }
 
+#[derive(Deserialize)]
+pub struct LedgerQuery {
+    #[serde(default)]
+    offset: i64,
+    #[serde(default)]
+    limit: i64,
+}
+
+#[derive(Serialize, sqlx::FromRow)]
+pub struct LedgerEntry {
+    ledger_id: Uuid,
+    entry_type: String,
+    amount_cents: i64,
+    balance_after_cents: Option<i64>,
+    memo: Option<String>,
+    ref_no: Option<String>,
+    txn_time: DateTime<Utc>,
+}
+
+#[derive(Serialize)]
+pub struct LedgerList {
+    entries: Vec<LedgerEntry>,
+    offset: i64,
+    limit: i64,
+    has_more: bool,
+}
+
 pub async fn wallet(State(state): State<AppState>, headers: HeaderMap) -> Result<Json<WalletOut>, AppError> {
     let user = user_of(&state, &headers)?;
     Ok(Json(WalletOut { balance: wallet_balance(&state.pool, user).await? }))
+}
+
+pub async fn wallet_ledger(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<LedgerQuery>,
+) -> Result<Json<LedgerList>, AppError> {
+    let user = user_of(&state, &headers)?;
+    let offset = query.offset.max(0);
+    let limit = query.limit.clamp(1, 50);
+    let rows = sqlx::query_as::<_, LedgerEntry>(
+        r#"
+        SELECT l.ledger_id, l.entry_type, l.amount_cents::bigint AS amount_cents,
+               l.balance_after_cents::bigint AS balance_after_cents, l.memo, l.ref_no, l.txn_time
+        FROM mt_wallet_ledger l
+        JOIN mt_wallet_account a ON a.wallet_id = l.wallet_id
+        WHERE a.user_id = $1 AND a.is_active = true
+        ORDER BY l.txn_time DESC, l.created_at DESC
+        LIMIT $2 OFFSET $3
+        "#,
+    )
+    .bind(user)
+    .bind(limit + 1)
+    .bind(offset)
+    .fetch_all(&state.pool)
+    .await?;
+    let has_more = rows.len() as i64 > limit;
+    Ok(Json(LedgerList {
+        entries: rows.into_iter().take(limit as usize).collect(),
+        offset,
+        limit,
+        has_more,
+    }))
 }
 
 #[derive(Deserialize)]
