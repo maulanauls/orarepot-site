@@ -58,6 +58,14 @@ spring:
               uri: ${REPORTING_URI:http://localhost:8205}
               predicates:
                 - Path=/reports/**
+            - id: biller-identity
+              uri: ${BILLER_IDENTITY_URI:http://localhost:8104}
+              predicates:
+                - Path=/biller/auth/**
+            - id: biller
+              uri: ${BILLER_URI:http://localhost:8105}
+              predicates:
+                - Path=/biller/catalog/**,/biller/orders/**,/biller/wallet/**
 
 management:
   endpoints:

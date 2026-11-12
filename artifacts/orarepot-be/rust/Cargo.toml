@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/common", "crates/identity", "crates/billing", "crates/otp"]
+members = ["crates/common", "crates/identity", "crates/billing", "crates/otp", "crates/biller-identity", "crates/biller"]
 
 [workspace.package]
 edition = "2021"
@@ -27,3 +27,4 @@ tower-http = { version = "0.6", features = ["cors", "trace"] }
 sha2 = "0.10"
 hex = "0.4"
 orarepot-common = { path = "crates/common" }
+redis = { version = "0.27", features = ["tokio-comp"] }

@@ -2,6 +2,25 @@
 
 JWT (`Authorization: Bearer`) required unless noted.
 
+## biller-identity — Rust `orarepot-biller-identity` :8104
+- `POST /biller/auth/register` public. Writes `TKN_group_wp.mt_users`.
+- `POST /biller/auth/login` public (email or WhatsApp + password).
+- `GET  /biller/auth/me`
+- `POST /biller/auth/logout`
+
+Login and register return a JWT (`kind=biller`, `jti`). The gateway checks the signature, then checks Redis key `biller:session:{jti}` before forwarding.
+
+## biller — Rust `orarepot-biller` :8105
+- `GET /biller/catalog` public. Categories and provider brands from `mt_lookup` / `mt_corporate_business_module`.
+- `GET /biller/catalog/products?module=&brand=&type=` public. Selling price uses the same margin rule as the WhatsApp bot.
+- `POST /biller/orders` body `{ lookup_idf, target }`. Checks stock, operator prefix and target format, recomputes the price, then writes `mt_billing` (INQUIRY) and `mt_transaction_session` with the Digiflazz signature. Returns the `MKINV-…` code and payment options.
+- `GET  /biller/orders` last 20 orders of the user (WhatsApp orders included).
+- `GET  /biller/orders/{code}` order state: `unpaid`, `waiting` (QR), `processing`, `success`, `failed`, `expired`. While waiting it checks Midtrans status.
+- `POST /biller/orders/{code}/pay` body `{ method: "MENUKU_KOIN" | "QRIS" }`. Full koin goes to the n8n paid webhook. Koin short of the price debits the balance and charges QRIS for the rest. Held koin is returned when the QR expires.
+- `GET  /biller/wallet` koin balance.
+
+Env: `JWT_SECRET`, `MIDTRANS_URL`, `MIDTRANS_SERVER_KEY`, `DIGIFLAZZ_USERNAME`, `DIGIFLAZZ_KEY`, `PAID_CALLBACK_URL` (n8n `MIDTRANS CALLBACK PAYMENT` webhook).
+
 ## identity — Rust :8101
 - `POST /auth/register` public
 - `POST /auth/login` public (email **or** WhatsApp number + password)

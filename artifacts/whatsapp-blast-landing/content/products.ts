@@ -7,7 +7,7 @@ export type ProductSlug =
 
 export type Product = {
   slug: ProductSlug;
-  href: `/di/orarepot/${ProductSlug}`;
+  href: `/${ProductSlug}`;
   label: string;
   shortTitle: string;
   title: string;
@@ -23,7 +23,7 @@ export type Product = {
 export const products: Product[] = [
   {
     slug: 'agentic-ai',
-    href: '/di/orarepot/agentic-ai',
+    href: '/agentic-ai',
     label: 'Agentic AI',
     shortTitle: 'AI Assistant',
     title: 'AI Assistant untuk customer relationship merchant WhatsApp',
@@ -56,7 +56,7 @@ export const products: Product[] = [
   },
   {
     slug: 'waba-messaging',
-    href: '/di/orarepot/waba-messaging',
+    href: '/waba-messaging',
     label: 'WABA Messaging',
     shortTitle: 'Broadcast & OTP',
     title: 'Broadcast & OTP resmi lewat WhatsApp Business API',
@@ -89,7 +89,7 @@ export const products: Product[] = [
   },
   {
     slug: 'pulsa-dan-voucher-game',
-    href: '/di/orarepot/pulsa-dan-voucher-game',
+    href: '/pulsa-dan-voucher-game',
     label: 'Digital Goods',
     shortTitle: 'Pulsa & Voucher',
     title: 'Pulsa, voucher game, dan produk digital lainnya',

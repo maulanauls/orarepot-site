@@ -82,6 +82,33 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
     ports: ["8101:8101"]
 
+  biller-identity:
+    build:
+      context: ./rust
+      args:
+        CRATE: orarepot-biller-identity
+    env_file: .env
+    environment:
+      <<: *app-env
+      DATABASE_URL: ${DATABASE_URL_BILLER}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      BIND: 0.0.0.0:8104
+      RUST_LOG: info
+    ports: ["8104:8104"]
+
+  biller:
+    build:
+      context: ./rust
+      args:
+        CRATE: orarepot-biller
+    env_file: .env
+    environment:
+      <<: *app-env
+      DATABASE_URL: ${DATABASE_URL_BILLER}
+      BIND: 0.0.0.0:8105
+      RUST_LOG: info
+    ports: ["8105:8105"]
+
   billing:
     build:
       context: ./rust
@@ -236,6 +263,8 @@ services:
       SPRING_DATA_REDIS_PORT: ${REDIS_PORT}
       SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD}
       IDENTITY_URI: http://identity:8101
+      BILLER_IDENTITY_URI: http://biller-identity:8104
+      BILLER_URI: http://biller:8105
       MEMBERS_URI: http://members:8201
       MERCHANT_URI: http://merchant:8202
       BILLING_URI: http://billing:8102

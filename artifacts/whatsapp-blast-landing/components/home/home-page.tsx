@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import {
   ArrowRight,
+  Check,
   ChevronDown,
   ChevronUp,
   Gamepad2,
@@ -40,45 +41,69 @@ export function HomePage() {
         <div className="hero-plane" />
         <div className="container hero-grid">
           <div className="hero-copy-block">
+            <p className="hero-kicker">{t('home.heroKicker')}</p>
             <h1>
-              {t('home.heroTitleBefore')}
-              <em>{t('home.heroTitleEm')}</em>
+              <span>{t('home.heroTitleBefore')}</span>
+              <em>
+                {t('home.heroTitleEm')}
+                <br />
+                {t('home.heroTitleEm2')}
+              </em>
             </h1>
             <p className="hero-copy">{t('home.heroCopy')}</p>
+            <p className="hero-price">
+              <strong>{t('home.heroPrice')}</strong>
+              <span>{t('home.heroPriceUnit')}</span>
+              <small>{t('home.heroPriceNote')}</small>
+            </p>
             <div className="hero-actions">
-              <Link className="button-primary" href="/demo/di/orarepot?minat=ai">
-                {t('common.tryNow')} <ArrowRight size={16} />
+              <Link className="button-primary" href="/register/diorarepot">
+                {t('home.heroCta')} <ArrowRight size={16} />
               </Link>
-              <Link className="button-ghost" href="#produk">
-                {t('home.seeAllProducts')}
+              <Link className="button-ghost" href="/docs">
+                {t('home.heroDocs')} <ArrowRight size={16} />
               </Link>
             </div>
+            <ul className="hero-checks">
+              <li>
+                <Check size={14} /> {t('home.heroCheck1')}
+              </li>
+              <li>
+                <Check size={14} /> {t('home.heroCheck2')}
+              </li>
+              <li>
+                <Check size={14} /> {t('home.heroCheck3')}
+              </li>
+            </ul>
           </div>
-          <div className="chat-visual" aria-hidden="true">
-            <div className="chat-stage">
-              <div className="chat-phone">
-                <div className="chat-status">
-                  <img src="/logo-orarepot-icon.svg" alt="" className="chat-avatar" />
-                  <div>
-                    <strong>Ora Repot AI</strong>
-                    <span>{t('home.chatOnline')}</span>
-                  </div>
-                </div>
-                <div className="chat-thread">
-                  <div className="bubble in">{t('home.chatIn1')}</div>
-                  <div className="bubble out">
-                    {t('home.chatOut1')}
-                    <small>{t('home.chatOut1Small')}</small>
-                  </div>
-                  <div className="bubble in">{t('home.chatIn2')}</div>
-                  <div className="bubble out typing">
-                    <i />
-                    <i />
-                    <i />
-                  </div>
-                </div>
+          <div className="hero-proof" aria-hidden="true">
+            <div className="proof-code">
+              <div className="proof-code-bar">
+                <span />
+                <span />
+                <span />
+                <strong>{t('home.codeTitle')}</strong>
               </div>
-              <div className="chat-glow" />
+              <pre>{`curl -X POST https://api.orarepot.com/v1/otp/send \\
+  -H "Authorization: Bearer $ORAREPOT_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"to":"+628123456789","template":"otp_login"}'
+
+# { "status": "success", "cost_idr": 600 }`}</pre>
+            </div>
+            <div className="proof-card">
+              <Check size={16} />
+              <div>
+                <strong>{t('home.deliveredKicker')}</strong>
+                <span>{t('home.deliveredBody')}</span>
+              </div>
+            </div>
+            <div className="proof-card proof-card-ppob">
+              <Ticket size={16} />
+              <div>
+                <strong>{t('home.ppobKicker')}</strong>
+                <span>{t('home.ppobBody')}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -179,7 +204,7 @@ export function HomePage() {
             </article>
           </div>
           <div className="section-cta">
-            <Link className="button-primary dark" href="/di/orarepot/waba-messaging">
+            <Link className="button-primary dark" href="/waba-messaging">
               {t('home.msgCta')} <ArrowRight size={16} />
             </Link>
           </div>
@@ -209,7 +234,7 @@ export function HomePage() {
             <span className="section-kicker">{t('home.digitalKicker')}</span>
             <h2 className="section-heading">{t('home.digitalHeading')}</h2>
             <p className="section-lead">{t('home.digitalLead')}</p>
-            <Link className="button-primary" href="/di/orarepot/pulsa-dan-voucher-game">
+            <Link className="button-primary" href="/pulsa-dan-voucher-game">
               {t('home.digitalCta')} <ArrowRight size={16} />
             </Link>
           </div>

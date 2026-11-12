@@ -17,7 +17,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return pageMetadata({
     title: product.seoTitle,
     description: product.seoDescription,
-    path: `/di/orarepot/${product.slug}`,
+    path: `/${product.slug}`,
   });
 }
 
@@ -28,7 +28,7 @@ export default async function Page({ params }: Props) {
   const jsonLd = serviceJsonLd({
     name: product.seoTitle,
     description: product.seoDescription,
-    path: `/di/orarepot/${product.slug}`,
+    path: `/${product.slug}`,
   });
   return (
     <>

@@ -29,6 +29,41 @@ services:
     ports: ["8101:8101"]
     networks: [app-network]
 
+  biller-identity:
+    image: ${DOCKER_HUB_USER}/orarepot-biller-identity:${IMAGE_TAG}
+    container_name: orarepot-biller-identity
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      <<: *app-env
+      DATABASE_URL: ${DATABASE_URL_BILLER}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      BIND: 0.0.0.0:8104
+      RUST_LOG: info
+      OTP_NOTIFY_URL: ${OTP_NOTIFY_URL:-}
+      OTP_NOTIFY_TOKEN: ${OTP_NOTIFY_TOKEN:-}
+      OTP_DEV_LOG: ${OTP_DEV_LOG:-0}
+    ports: ["8104:8104"]
+    networks: [app-network]
+
+  biller:
+    image: ${DOCKER_HUB_USER}/orarepot-biller:${IMAGE_TAG}
+    container_name: orarepot-biller
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      <<: *app-env
+      DATABASE_URL: ${DATABASE_URL_BILLER}
+      BIND: 0.0.0.0:8105
+      RUST_LOG: info
+      MIDTRANS_URL: ${MIDTRANS_URL:-https://api.midtrans.com}
+      MIDTRANS_SERVER_KEY: ${MIDTRANS_SERVER_KEY:-}
+      DIGIFLAZZ_USERNAME: ${DIGIFLAZZ_USERNAME:-}
+      DIGIFLAZZ_KEY: ${DIGIFLAZZ_KEY:-}
+      PAID_CALLBACK_URL: ${PAID_CALLBACK_URL:-}
+    ports: ["8105:8105"]
+    networks: [app-network]
+
   billing:
     image: ${DOCKER_HUB_USER}/orarepot-billing:${IMAGE_TAG}
     container_name: orarepot-billing
@@ -196,6 +231,8 @@ services:
       SPRING_DATA_REDIS_PORT: ${REDIS_PORT}
       SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD}
       IDENTITY_URI: http://orarepot-identity:8101
+      BILLER_IDENTITY_URI: http://orarepot-biller-identity:8104
+      BILLER_URI: http://orarepot-biller:8105
       MEMBERS_URI: http://orarepot-members:8201
       MERCHANT_URI: http://orarepot-merchant:8202
       BILLING_URI: http://orarepot-billing:8102

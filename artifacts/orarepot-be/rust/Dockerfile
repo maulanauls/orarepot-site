@@ -9,5 +9,5 @@ FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
 ARG CRATE=identity
 COPY --from=build /src/target/release/${CRATE} /usr/local/bin/service
-EXPOSE 8101 8102 8103
+EXPOSE 8101 8102 8103 8104 8105
 ENTRYPOINT ["/usr/local/bin/service"]

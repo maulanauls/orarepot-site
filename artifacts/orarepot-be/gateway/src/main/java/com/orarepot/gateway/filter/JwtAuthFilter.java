@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -27,6 +28,10 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
       "/auth/google",
       "/auth/forgot-password",
       "/auth/reset-password",
+      "/biller/auth/register",
+      "/biller/auth/enter",
+      "/biller/auth/login",
+      "/biller/catalog",
       "/billing/payments/midtrans",
       "/v1/",
       "/actuator",
@@ -34,9 +39,13 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
   );
 
   private final SecretKey key;
+  private final ReactiveStringRedisTemplate redis;
 
-  public JwtAuthFilter(@Value("${orarepot.jwt-secret}") String secret) {
+  public JwtAuthFilter(
+      @Value("${orarepot.jwt-secret}") String secret,
+      ReactiveStringRedisTemplate redis) {
     this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+    this.redis = redis;
   }
 
   @Override
@@ -60,15 +69,34 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
           .build()
           .parseSignedClaims(header.substring(7))
           .getPayload();
-      ServerHttpRequest mutated = request.mutate()
-          .header("X-User-Id", claims.getSubject())
-          .header("X-User-Email", stringClaim(claims, "email"))
-          .build();
-      return chain.filter(exchange.mutate().request(mutated).build());
+      if ("biller".equals(stringClaim(claims, "kind"))) {
+        String jti = claims.getId() == null ? "" : claims.getId();
+        if (jti.isEmpty()) {
+          return unauthorized(exchange);
+        }
+        return redis.hasKey("biller:session:" + jti)
+            .onErrorResume(ex -> Mono.just(false))
+            .flatMap(active -> Boolean.TRUE.equals(active)
+                ? forward(exchange, chain, claims)
+                : unauthorized(exchange));
+      }
+      return forward(exchange, chain, claims);
     } catch (Exception ex) {
-      exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-      return exchange.getResponse().setComplete();
+      return unauthorized(exchange);
     }
+  }
+
+  private static Mono<Void> forward(ServerWebExchange exchange, GatewayFilterChain chain, Claims claims) {
+    ServerHttpRequest mutated = exchange.getRequest().mutate()
+        .header("X-User-Id", claims.getSubject())
+        .header("X-User-Email", stringClaim(claims, "email"))
+        .build();
+    return chain.filter(exchange.mutate().request(mutated).build());
+  }
+
+  private static Mono<Void> unauthorized(ServerWebExchange exchange) {
+    exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+    return exchange.getResponse().setComplete();
   }
 
   private static boolean isPublic(String path) {

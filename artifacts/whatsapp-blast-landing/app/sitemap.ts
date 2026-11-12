@@ -3,9 +3,9 @@ import { SITE_URL } from '@/lib/seo';
 
 const PAGES: { path: string; priority: number }[] = [
   { path: '/', priority: 1 },
-  { path: '/di/orarepot/waba-messaging', priority: 0.9 },
-  { path: '/di/orarepot/agentic-ai', priority: 0.8 },
-  { path: '/di/orarepot/pulsa-dan-voucher-game', priority: 0.7 },
+  { path: '/waba-messaging', priority: 0.9 },
+  { path: '/agentic-ai', priority: 0.8 },
+  { path: '/pulsa-dan-voucher-game', priority: 0.7 },
   { path: '/harga/di/orarepot', priority: 0.8 },
   { path: '/demo/di/orarepot', priority: 0.6 },
   { path: '/docs', priority: 0.7 },
