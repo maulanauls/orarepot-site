@@ -322,11 +322,16 @@ async fn enter(
     if body.password.len() < 8 {
         return Err(AppError::bad("kata sandi minimal 8 karakter"));
     }
+    // Prefer the WhatsApp-linked row (62… / chat_id) so we claim that account
+    // instead of creating or logging into a later 08… duplicate.
     let existing = sqlx::query_as::<_, ClaimRow>(
         "SELECT users_idf, users_fullname, users_email, user_phonenumber, users_credentials, users_chat_id
          FROM mt_users
          WHERE user_phonenumber = ANY($1) AND users_status = 1
-         ORDER BY (users_credentials IS NOT NULL) DESC, users_created_date
+         ORDER BY
+           (NULLIF(BTRIM(users_chat_id), '') IS NOT NULL) DESC,
+           users_created_date ASC,
+           (users_credentials IS NOT NULL) DESC
          LIMIT 1",
     )
     .bind(phone_variants(&phone).to_vec())
@@ -605,7 +610,10 @@ async fn login(
             "SELECT users_idf, users_fullname, users_email, user_phonenumber, users_credentials
              FROM mt_users
              WHERE user_phonenumber = ANY($1) AND users_status = 1
-             ORDER BY (users_credentials IS NOT NULL) DESC, users_created_date
+             ORDER BY
+               (users_credentials IS NOT NULL) DESC,
+               (NULLIF(BTRIM(users_chat_id), '') IS NOT NULL) DESC,
+               users_created_date ASC
              LIMIT 1",
         )
         .bind(phone_variants(&phone).to_vec())

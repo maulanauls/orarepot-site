@@ -370,13 +370,25 @@ fn stage_of(row: &OrderRow) -> &'static str {
 }
 
 fn qr_from_charge(charge: &Value) -> (Option<String>, Option<String>) {
+    // Prefer v1 PNG endpoint for <img> embedding. merchants-app v2 can return HTML.
     let url = charge
         .get("actions")
         .and_then(Value::as_array)
         .and_then(|actions| {
-            actions
-                .iter()
-                .find(|a| a.get("name").and_then(Value::as_str) == Some("generate-qr-code"))
+            let named = |needle: &str| {
+                actions.iter().find(|a| {
+                    a.get("name")
+                        .and_then(Value::as_str)
+                        .is_some_and(|name| name.contains(needle))
+                })
+            };
+            named("generate-qr-code")
+                .filter(|a| {
+                    !a.get("name")
+                        .and_then(Value::as_str)
+                        .is_some_and(|name| name.contains("v2"))
+                })
+                .or_else(|| named("generate-qr-code-v2"))
                 .or_else(|| actions.first())
         })
         .and_then(|a| a.get("url"))
