@@ -94,6 +94,14 @@ services:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       BIND: 0.0.0.0:8104
       RUST_LOG: info
+      OTP_NOTIFY_URL: ${OTP_NOTIFY_URL:-}
+      OTP_NOTIFY_TOKEN: ${OTP_NOTIFY_TOKEN:-}
+      OTP_DEV_LOG: ${OTP_DEV_LOG:-0}
+      META_GRAPH_VERSION: ${META_GRAPH_VERSION:-v26.0}
+      META_PHONE_NUMBER_ID: ${META_PHONE_NUMBER_ID:-}
+      META_OTP_TEMPLATE_ID: ${META_OTP_TEMPLATE_ID:-otp_merchant_id}
+      META_OTP_TEMPLATE_ID_LANG: ${META_OTP_TEMPLATE_ID_LANG:-id}
+      META_WA_TOKEN: ${META_WA_TOKEN:-}
     ports: ["8104:8104"]
 
   biller:

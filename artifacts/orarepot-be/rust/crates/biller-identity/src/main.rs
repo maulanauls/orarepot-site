@@ -41,6 +41,12 @@ struct OtpConfig {
     http: reqwest::Client,
     notify_url: Option<String>,
     notify_token: Option<String>,
+    /// Official Meta WhatsApp Cloud API (same stack as orarepot-otp).
+    meta_graph_version: String,
+    meta_phone_number_id: Option<String>,
+    meta_wa_token: Option<String>,
+    meta_tpl_name: String,
+    meta_tpl_lang: String,
     dev_log: bool,
 }
 
@@ -53,8 +59,18 @@ impl OtpConfig {
                 .build()?,
             notify_url: nonempty("OTP_NOTIFY_URL"),
             notify_token: nonempty("OTP_NOTIFY_TOKEN"),
+            meta_graph_version: nonempty("META_GRAPH_VERSION").unwrap_or_else(|| "v26.0".into()),
+            meta_phone_number_id: nonempty("META_PHONE_NUMBER_ID"),
+            meta_wa_token: nonempty("META_WA_TOKEN"),
+            meta_tpl_name: nonempty("META_OTP_TEMPLATE_ID").unwrap_or_else(|| "otp_merchant_id".into()),
+            meta_tpl_lang: nonempty("META_OTP_TEMPLATE_ID_LANG").unwrap_or_else(|| "id".into()),
             dev_log: nonempty("OTP_DEV_LOG").is_some_and(|v| v == "1"),
         })
+    }
+
+    fn meta_ready(&self) -> bool {
+        self.meta_wa_token.as_deref().is_some_and(|v| !v.is_empty())
+            && self.meta_phone_number_id.as_deref().is_some_and(|v| !v.is_empty())
     }
 }
 
@@ -116,12 +132,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = redis::Client::open(redis_url)?;
     let redis = client.get_multiplexed_async_connection().await?;
     let otp = OtpConfig::from_env()?;
-    if otp.notify_url.is_none() {
+    if !otp.meta_ready() && otp.notify_url.is_none() {
         if otp.dev_log {
-            tracing::warn!("OTP_NOTIFY_URL unset: OTP codes are written to the log (dev only)");
+            tracing::warn!("OTP delivery unset: codes are written to the log (dev only)");
         } else {
-            tracing::warn!("OTP_NOTIFY_URL unset: WhatsApp accounts cannot be claimed on the web");
+            tracing::warn!("META_WA_TOKEN / OTP_NOTIFY_URL unset: WhatsApp claim OTP cannot be sent");
         }
+    } else if otp.meta_ready() {
+        tracing::info!(template = %otp.meta_tpl_name, "OTP delivery via Meta Cloud API");
+    } else {
+        tracing::info!("OTP delivery via OTP_NOTIFY_URL");
     }
     let state = AppState {
         pool,
@@ -423,6 +443,12 @@ async fn start_claim(
             "nomor ini terdaftar tapi belum bisa diverifikasi, hubungi admin",
         ));
     };
+    let phone = row
+        .user_phonenumber
+        .as_deref()
+        .and_then(normalize_phone)
+        .map(|local| phone_intl(&local))
+        .ok_or_else(|| AppError::conflict("nomor WhatsApp akun tidak valid"))?;
     let attach_email = match row.users_email.as_deref() {
         Some(current) if current.eq_ignore_ascii_case(&email) => None,
         Some(_) => return Err(AppError::unauthorized("email tidak cocok dengan akun nomor ini")),
@@ -471,7 +497,7 @@ async fn start_claim(
         .query_async(&mut redis)
         .await
         .map_err(|e| AppError::internal(e.to_string()))?;
-    if let Err(err) = send_otp(state, &chat_id, &code).await {
+    if let Err(err) = send_otp(state, &phone, &chat_id, &code).await {
         let _: Result<(), _> = redis::cmd("DEL")
             .arg(format!("biller:otp:{challenge}"))
             .arg(format!("biller:otp:cool:{}", row.users_idf))
@@ -487,26 +513,92 @@ async fn start_claim(
     })))
 }
 
-async fn send_otp(state: &AppState, chat_id: &str, code: &str) -> Result<(), AppError> {
+async fn send_otp(state: &AppState, phone_intl: &str, chat_id: &str, code: &str) -> Result<(), AppError> {
     let otp = &state.otp;
-    let Some(url) = otp.notify_url.as_deref() else {
-        if otp.dev_log {
-            tracing::warn!(chat_id, code, "OTP (dev log, not sent)");
-            return Ok(());
+    if otp.meta_ready() {
+        match send_otp_meta(otp, phone_intl, code).await {
+            Ok(()) => return Ok(()),
+            Err(err) => {
+                tracing::error!(error = %err, phone = %phone_intl, "Meta OTP send failed");
+                if otp.notify_url.is_none() && !otp.dev_log {
+                    return Err(AppError::internal("kode WhatsApp gagal dikirim, coba lagi"));
+                }
+            }
         }
-        return Err(AppError::internal("pengiriman kode WhatsApp belum aktif"));
-    };
-    let mut request = otp.http.post(url).json(&json!({ "chat_id": chat_id, "code": code }));
-    if let Some(token) = otp.notify_token.as_deref() {
-        request = request.header("x-internal-token", token);
     }
-    let response = request.send().await.map_err(|e| {
-        tracing::error!(error = %e, "OTP notify unreachable");
-        AppError::internal("kode WhatsApp gagal dikirim, coba lagi")
-    })?;
-    if !response.status().is_success() {
-        tracing::error!(status = %response.status(), "OTP notify rejected");
-        return Err(AppError::internal("kode WhatsApp gagal dikirim, coba lagi"));
+    if let Some(url) = otp.notify_url.as_deref() {
+        let mut request = otp.http.post(url).json(&json!({ "chat_id": chat_id, "code": code }));
+        if let Some(token) = otp.notify_token.as_deref() {
+            request = request.header("x-internal-token", token);
+        }
+        let response = request.send().await.map_err(|e| {
+            tracing::error!(error = %e, "OTP notify unreachable");
+            AppError::internal("kode WhatsApp gagal dikirim, coba lagi")
+        })?;
+        if !response.status().is_success() {
+            tracing::error!(status = %response.status(), "OTP notify rejected");
+            return Err(AppError::internal("kode WhatsApp gagal dikirim, coba lagi"));
+        }
+        return Ok(());
+    }
+    if otp.dev_log {
+        tracing::warn!(chat_id, phone = %phone_intl, code, "OTP (dev log, not sent)");
+        return Ok(());
+    }
+    Err(AppError::internal("pengiriman kode WhatsApp belum aktif"))
+}
+
+async fn send_otp_meta(otp: &OtpConfig, phone_intl: &str, code: &str) -> Result<(), String> {
+    let token = otp.meta_wa_token.as_deref().unwrap_or("");
+    let phone_number_id = otp.meta_phone_number_id.as_deref().unwrap_or("");
+    let to: String = phone_intl.chars().filter(|c| c.is_ascii_digit()).collect();
+    if to.len() < 10 {
+        return Err("phone too short for Meta".into());
+    }
+    let url = format!(
+        "https://graph.facebook.com/{}/{}/messages",
+        otp.meta_graph_version, phone_number_id
+    );
+    let payload = json!({
+        "messaging_product": "whatsapp",
+        "to": to,
+        "type": "template",
+        "template": {
+            "name": otp.meta_tpl_name,
+            "language": { "code": otp.meta_tpl_lang },
+            "components": [
+                {
+                    "type": "body",
+                    "parameters": [{ "type": "text", "text": code }]
+                },
+                {
+                    "type": "button",
+                    "sub_type": "url",
+                    "index": "0",
+                    "parameters": [{ "type": "text", "text": code }]
+                }
+            ]
+        }
+    });
+    let response = otp
+        .http
+        .post(url)
+        .bearer_auth(token)
+        .json(&payload)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let status = response.status();
+    let body: Value = response.json().await.map_err(|e| e.to_string())?;
+    if !status.is_success() {
+        let msg = body
+            .pointer("/error/message")
+            .and_then(Value::as_str)
+            .unwrap_or("graph api error");
+        return Err(format!("meta {status}: {msg}"));
+    }
+    if body.pointer("/messages/0/id").and_then(Value::as_str).is_none() {
+        return Err("graph api returned no message id".into());
     }
     Ok(())
 }
@@ -523,8 +615,11 @@ async fn enter_verify(
 ) -> Result<Json<AuthOut>, AppError> {
     let challenge = body.challenge.trim();
     let code: String = body.code.chars().filter(|c| c.is_ascii_digit()).collect();
-    if Uuid::parse_str(challenge).is_err() || code.len() != 6 {
-        return Err(AppError::bad("kode harus 6 angka"));
+    if Uuid::parse_str(challenge).is_err() {
+        return Err(AppError::bad("sesi verifikasi tidak valid, minta kode baru"));
+    }
+    if code.len() != 6 {
+        return Err(AppError::bad("kode harus tepat 6 angka"));
     }
     let key = format!("biller:otp:{challenge}");
     let mut redis = state.redis.clone();
