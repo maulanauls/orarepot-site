@@ -35,6 +35,8 @@ struct AppState {
     cfg: AppCfg,
     redis: MultiplexedConnection,
     otp: Arc<OtpConfig>,
+    google_client_id: String,
+    google_client_secret: String,
 }
 
 struct OtpConfig {
@@ -129,6 +131,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let bind = std::env::var("BIND").unwrap_or_else(|_| "0.0.0.0:8104".into());
     let redis_url = std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".into());
     let pool = PgPool::connect(&db).await?;
+    sqlx::query(
+        "ALTER TABLE mt_users ADD COLUMN IF NOT EXISTS users_google_sub character varying",
+    )
+    .execute(&pool)
+    .await?;
+    sqlx::query(
+        "CREATE UNIQUE INDEX IF NOT EXISTS mt_users_google_sub_uidx
+         ON mt_users (users_google_sub) WHERE users_google_sub IS NOT NULL",
+    )
+    .execute(&pool)
+    .await?;
     let client = redis::Client::open(redis_url)?;
     let redis = client.get_multiplexed_async_connection().await?;
     let otp = OtpConfig::from_env()?;
@@ -143,11 +156,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         tracing::info!("OTP delivery via OTP_NOTIFY_URL");
     }
+    let google_client_id = std::env::var("GOOGLE_CLIENT_ID").unwrap_or_default();
+    let google_client_secret = std::env::var("GOOGLE_CLIENT_SECRET").unwrap_or_default();
+    if google_client_id.is_empty() || google_client_secret.is_empty() {
+        tracing::warn!("GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET unset: Google login disabled");
+    } else {
+        tracing::info!("Google login enabled for biller customers");
+    }
     let state = AppState {
         pool,
         cfg: AppCfg::from_env(),
         redis,
         otp: Arc::new(otp),
+        google_client_id,
+        google_client_secret,
     };
     let app = Router::new()
         .route("/health", get(|| async { orarepot_common::health() }))
@@ -155,6 +177,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/biller/auth/enter", post(enter))
         .route("/biller/auth/enter/verify", post(enter_verify))
         .route("/biller/auth/login", post(login))
+        .route("/biller/auth/google", post(google_login))
         .route("/biller/auth/logout", post(logout))
         .route("/biller/auth/me", get(me))
         .with_state(state)
@@ -325,9 +348,15 @@ async fn register(
 
 #[derive(Deserialize)]
 struct EnterBody {
+    #[serde(default)]
     email: String,
+    #[serde(default)]
     phone: String,
     password: String,
+}
+
+fn valid_email(email: &str) -> bool {
+    email.contains('@') && email.split('@').nth(1).is_some_and(|host| host.contains('.'))
 }
 
 async fn enter(
@@ -335,30 +364,67 @@ async fn enter(
     Json(body): Json<EnterBody>,
 ) -> Result<Json<Value>, AppError> {
     let email = body.email.trim().to_lowercase();
-    let phone = normalize_phone(&body.phone).ok_or_else(|| AppError::bad("nomor telepon tidak valid"))?;
-    if !email.contains('@') || !email.split('@').nth(1).is_some_and(|host| host.contains('.')) {
+    let phone = normalize_phone(&body.phone);
+    if email.is_empty() && phone.is_none() {
+        return Err(AppError::bad("email atau nomor WhatsApp wajib diisi"));
+    }
+    if !email.is_empty() && !valid_email(&email) {
         return Err(AppError::bad("email tidak valid"));
     }
     if body.password.len() < 8 {
         return Err(AppError::bad("kata sandi minimal 8 karakter"));
     }
-    // Prefer the WhatsApp-linked row (62… / chat_id) so we claim that account
-    // instead of creating or logging into a later 08… duplicate.
-    let existing = sqlx::query_as::<_, ClaimRow>(
-        "SELECT users_idf, users_fullname, users_email, user_phonenumber, users_credentials, users_chat_id
-         FROM mt_users
-         WHERE user_phonenumber = ANY($1) AND users_status = 1
-         ORDER BY
-           (NULLIF(BTRIM(users_chat_id), '') IS NOT NULL) DESC,
-           users_created_date ASC,
-           (users_credentials IS NOT NULL) DESC
-         LIMIT 1",
-    )
-    .bind(phone_variants(&phone).to_vec())
-    .fetch_optional(&state.pool)
-    .await?;
-    if let Some(row) = existing {
-        if let Some(hash) = row.users_credentials.as_deref() {
+    if let Some(phone) = phone.as_ref() {
+        // Prefer the WhatsApp-linked row (62… / chat_id) so we claim that account
+        // instead of creating or logging into a later 08… duplicate.
+        let existing = sqlx::query_as::<_, ClaimRow>(
+            "SELECT users_idf, users_fullname, users_email, user_phonenumber, users_credentials, users_chat_id
+             FROM mt_users
+             WHERE user_phonenumber = ANY($1) AND users_status = 1
+             ORDER BY
+               (NULLIF(BTRIM(users_chat_id), '') IS NOT NULL) DESC,
+               users_created_date ASC,
+               (users_credentials IS NOT NULL) DESC
+             LIMIT 1",
+        )
+        .bind(phone_variants(phone).to_vec())
+        .fetch_optional(&state.pool)
+        .await?;
+        if let Some(row) = existing {
+            if let Some(hash) = row.users_credentials.as_deref() {
+                if !verify_password(&body.password, hash) {
+                    return Err(AppError::unauthorized("email atau kata sandi salah"));
+                }
+                sqlx::query("UPDATE mt_users SET users_updated_date = now() WHERE users_idf = $1")
+                    .bind(row.users_idf)
+                    .execute(&state.pool)
+                    .await?;
+                return auth_json(issue(&state, row.into_user()).await?);
+            }
+            let claim_email = if email.is_empty() {
+                row.users_email.clone().unwrap_or_default()
+            } else {
+                email.clone()
+            };
+            return start_claim(&state, row, claim_email, &body.password).await;
+        }
+    }
+    if !email.is_empty() {
+        let by_email = sqlx::query_as::<_, ClaimRow>(
+            "SELECT users_idf, users_fullname, users_email, user_phonenumber, users_credentials, users_chat_id
+             FROM mt_users
+             WHERE lower(users_email) = $1 AND users_status = 1
+             LIMIT 1",
+        )
+        .bind(&email)
+        .fetch_optional(&state.pool)
+        .await?;
+        if let Some(row) = by_email {
+            let Some(hash) = row.users_credentials.as_deref() else {
+                return Err(AppError::unauthorized(
+                    "akun ini belum punya kata sandi web, masuk dengan nomor WhatsApp",
+                ));
+            };
             if !verify_password(&body.password, hash) {
                 return Err(AppError::unauthorized("email atau kata sandi salah"));
             }
@@ -368,24 +434,18 @@ async fn enter(
                 .await?;
             return auth_json(issue(&state, row.into_user()).await?);
         }
-        return start_claim(&state, row, email, &body.password).await;
-    }
-    let taken: bool = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM mt_users WHERE lower(users_email) = $1)",
-    )
-    .bind(&email)
-    .fetch_one(&state.pool)
-    .await?;
-    if taken {
-        return Err(AppError::conflict("email sudah terdaftar"));
     }
     let auth = register(
         State(state),
         Json(RegisterBody {
-            full_name: email.clone(),
+            full_name: if !email.is_empty() {
+                email.clone()
+            } else {
+                phone.clone().unwrap_or_default()
+            },
             identifier: String::new(),
             email,
-            phone,
+            phone: phone.unwrap_or_default(),
             password: body.password,
         }),
     )
@@ -450,8 +510,9 @@ async fn start_claim(
         .map(|local| phone_intl(&local))
         .ok_or_else(|| AppError::conflict("nomor WhatsApp akun tidak valid"))?;
     let attach_email = match row.users_email.as_deref() {
-        Some(current) if current.eq_ignore_ascii_case(&email) => None,
+        Some(current) if email.is_empty() || current.eq_ignore_ascii_case(&email) => None,
         Some(_) => return Err(AppError::unauthorized("email tidak cocok dengan akun nomor ini")),
+        None if email.is_empty() || !valid_email(&email) => None,
         None => {
             let taken: bool = sqlx::query_scalar(
                 "SELECT EXISTS(SELECT 1 FROM mt_users WHERE lower(users_email) = $1 AND users_idf <> $2)",
@@ -792,6 +853,216 @@ async fn logout(
         .await
         .map_err(|e| AppError::internal(e.to_string()))?;
     Ok(Json(serde_json::json!({ "ok": true })))
+}
+
+#[derive(Deserialize)]
+struct GoogleBody {
+    code: String,
+}
+
+struct GoogleProfile {
+    sub: String,
+    email: String,
+    name: String,
+    email_verified: bool,
+}
+
+fn urlencode(value: &str) -> String {
+    let mut out = String::with_capacity(value.len());
+    for b in value.bytes() {
+        match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(b as char)
+            }
+            _ => out.push_str(&format!("%{b:02X}")),
+        }
+    }
+    out
+}
+
+fn json_flag(value: &Value) -> bool {
+    value.as_bool().unwrap_or_else(|| {
+        value
+            .as_str()
+            .is_some_and(|s| s.eq_ignore_ascii_case("true"))
+    })
+}
+
+async fn exchange_google_code(state: &AppState, code: &str) -> Result<GoogleProfile, AppError> {
+    let body = format!(
+        "code={}&client_id={}&client_secret={}&redirect_uri=postmessage&grant_type=authorization_code",
+        urlencode(code),
+        urlencode(&state.google_client_id),
+        urlencode(&state.google_client_secret),
+    );
+    let token_res = state
+        .otp
+        .http
+        .post("https://oauth2.googleapis.com/token")
+        .header("content-type", "application/x-www-form-urlencoded")
+        .body(body)
+        .send()
+        .await
+        .map_err(|err| AppError::internal(err.to_string()))?;
+    let token_status = token_res.status();
+    let token_json: Value = token_res
+        .json()
+        .await
+        .map_err(|err| AppError::internal(err.to_string()))?;
+    if !token_status.is_success() {
+        let message = token_json
+            .get("error_description")
+            .or_else(|| token_json.get("error"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("Google token exchange failed");
+        return Err(AppError::unauthorized(message));
+    }
+    let id_token = token_json
+        .get("id_token")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| AppError::unauthorized("Google tidak mengembalikan id token"))?;
+    let info_res = state
+        .otp
+        .http
+        .get("https://oauth2.googleapis.com/tokeninfo")
+        .query(&[("id_token", id_token)])
+        .send()
+        .await
+        .map_err(|err| AppError::internal(err.to_string()))?;
+    let info_status = info_res.status();
+    let info: Value = info_res
+        .json()
+        .await
+        .map_err(|err| AppError::internal(err.to_string()))?;
+    if !info_status.is_success() {
+        return Err(AppError::unauthorized("Google id token ditolak"));
+    }
+    let aud = info.get("aud").and_then(|v| v.as_str()).unwrap_or("");
+    if aud != state.google_client_id {
+        return Err(AppError::unauthorized("Google token audience mismatch"));
+    }
+    let email = info
+        .get("email")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim()
+        .to_lowercase();
+    let sub = info
+        .get("sub")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    if email.is_empty() || sub.is_empty() {
+        return Err(AppError::unauthorized("akun Google tidak punya email"));
+    }
+    let name = info
+        .get("name")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| email.split('@').next().unwrap_or("Ora Repot"))
+        .to_string();
+    Ok(GoogleProfile {
+        sub,
+        email,
+        name,
+        email_verified: info.get("email_verified").map(json_flag).unwrap_or(false),
+    })
+}
+
+async fn upsert_google_user(state: &AppState, profile: &GoogleProfile) -> Result<UserOut, AppError> {
+    if !profile.email_verified {
+        return Err(AppError::unauthorized("email Google belum terverifikasi"));
+    }
+    if let Some(user) = sqlx::query_as::<_, UserOut>(
+        "SELECT users_idf, users_fullname, users_email, user_phonenumber
+         FROM mt_users
+         WHERE users_google_sub = $1 AND users_status = 1",
+    )
+    .bind(&profile.sub)
+    .fetch_optional(&state.pool)
+    .await?
+    {
+        sqlx::query("UPDATE mt_users SET users_updated_date = now() WHERE users_idf = $1")
+            .bind(user.users_idf)
+            .execute(&state.pool)
+            .await?;
+        return Ok(user);
+    }
+
+    let existing = sqlx::query_as::<_, (Uuid, Option<String>)>(
+        "SELECT users_idf, users_google_sub
+         FROM mt_users
+         WHERE lower(users_email) = $1 AND users_status = 1
+         LIMIT 1",
+    )
+    .bind(&profile.email)
+    .fetch_optional(&state.pool)
+    .await?;
+    if let Some((id, google_sub)) = existing {
+        if google_sub
+            .as_deref()
+            .is_some_and(|current| current != profile.sub)
+        {
+            return Err(AppError::conflict(
+                "email sudah terhubung ke akun Google lain",
+            ));
+        }
+        return Ok(sqlx::query_as::<_, UserOut>(
+            "UPDATE mt_users
+             SET users_google_sub = $2,
+                 users_fullname = COALESCE(NULLIF(BTRIM(users_fullname), ''), $3),
+                 users_updated_date = now()
+             WHERE users_idf = $1
+             RETURNING users_idf, users_fullname, users_email, user_phonenumber",
+        )
+        .bind(id)
+        .bind(&profile.sub)
+        .bind(&profile.name)
+        .fetch_one(&state.pool)
+        .await?);
+    }
+
+    let (full, first, last) = split_name(&profile.name);
+    let hash = hash_password(&Uuid::new_v4().to_string())?;
+    sqlx::query_as::<_, UserOut>(
+        "INSERT INTO mt_users (
+            users_fullname, users_firstname, users_lastname, users_email,
+            users_credentials, users_google_sub, users_status, users_created_date
+         ) VALUES ($1,$2,$3,$4,$5,$6,1, now())
+         RETURNING users_idf, users_fullname, users_email, user_phonenumber",
+    )
+    .bind(&full)
+    .bind(&first)
+    .bind(&last)
+    .bind(&profile.email)
+    .bind(&hash)
+    .bind(&profile.sub)
+    .fetch_one(&state.pool)
+    .await
+    .map_err(|err| {
+        if err.to_string().contains("unique") || err.to_string().contains("duplicate") {
+            AppError::conflict("email sudah terdaftar")
+        } else {
+            AppError::from(err)
+        }
+    })
+}
+
+async fn google_login(
+    State(state): State<AppState>,
+    Json(body): Json<GoogleBody>,
+) -> Result<Json<AuthOut>, AppError> {
+    if state.google_client_id.is_empty() || state.google_client_secret.is_empty() {
+        return Err(AppError::internal("Google OAuth belum dikonfigurasi"));
+    }
+    let code = body.code.trim();
+    if code.is_empty() {
+        return Err(AppError::bad("kode Google kosong"));
+    }
+    let profile = exchange_google_code(&state, code).await?;
+    let user = upsert_google_user(&state, &profile).await?;
+    issue(&state, user).await
 }
 
 async fn issue(state: &AppState, user: UserOut) -> Result<Json<AuthOut>, AppError> {
