@@ -700,17 +700,23 @@ html.dashboard-font .lang-switch button {
   color: #16241f;
 }
 .hero-notes .proof-card span { color: #6b7c76; font-size: 0.82rem; }
-.note-avatar {
+.hero-notes .note-avatar {
   width: 36px;
   height: 36px;
   border-radius: 50%;
   display: grid;
   place-items: center;
   flex: none;
+  background: #12352c;
+  color: #fff;
 }
-.note-avatar-wa { background: #25d366; color: #fff; }
-.note-avatar-ok { background: #e7f8ee; color: #1aa36a; }
-.note-avatar-game { background: #eef6f3; color: #12352c; }
+.hero-notes .note-avatar svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  color: #fff;
+  stroke-width: 2.25;
+}
 .hero-price {
   display: flex;
   align-items: baseline;
