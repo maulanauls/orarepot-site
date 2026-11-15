@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import {
   ArrowRight,
   Check,
@@ -17,7 +17,21 @@ import {
 } from 'lucide-react';
 import { useLocale } from '@/components/i18n/locale-provider';
 import { MetaPartnerBanner } from '@/components/home/meta-partner-banner';
+import { MetaMark } from '@/components/icons/meta-mark';
+import { WhatsAppBubble } from '@/components/icons/whatsapp-bubble';
 import { getLocalizedProducts } from '@/lib/i18n/products';
+
+function kickerWithMark(text: string): ReactNode {
+  const [head, ...rest] = text.split('·');
+  const tail = rest.join('·').trim();
+  return (
+    <>
+      {head.trim()}
+      <WhatsAppBubble size={15} className="hero-wa-mark" />
+      {tail ? <span>· {tail}</span> : null}
+    </>
+  );
+}
 
 export function HomePage() {
   const { locale, t } = useLocale();
@@ -39,11 +53,36 @@ export function HomePage() {
     <main className="ora-page">
       <section className="hero" id="top">
         <div className="hero-plane" />
-        <div className="container hero-grid">
+        <div className="hero-orbits" aria-hidden="true">
+          <span className="orbit-ring orbit-ring-a" />
+          <span className="orbit-ring orbit-ring-b" />
+          <span className="orbit-ring orbit-ring-c" />
+          <span className="orbit-chip chip-wa"><WhatsAppBubble size={22} /></span>
+          <span className="orbit-chip chip-meta"><MetaMark size={30} /></span>
+          <span className="orbit-chip chip-digi">
+            <img src="/digiflazz-mark.png" alt="" />
+          </span>
+          <span className="orbit-chip chip-phone"><Smartphone size={18} /></span>
+          <span className="orbit-chip chip-game"><Gamepad2 size={18} /></span>
+          <span className="orbit-chip chip-ticket"><Ticket size={18} /></span>
+          <span className="orbit-chip chip-zap"><Zap size={18} /></span>
+          <span className="orbit-chip chip-shield"><ShieldCheck size={18} /></span>
+        </div>
+        <div className="container hero-stage">
           <div className="hero-copy-block">
-            <p className="hero-kicker">{t('home.heroKicker')}</p>
+            <p className="hero-kicker">{kickerWithMark(t('home.heroKicker'))}</p>
             <h1>
-              <span>{t('home.heroTitleBefore')}</span>
+              <span className="hero-code">
+                <span className="code-line">
+                  <span className="code-key">API</span>
+                  <span className="code-ident">{t('home.heroTitleBefore').replace(/^API\s*/, '')}</span>
+                </span>
+                <span className="code-line">
+                  <span className="code-call">
+                    <span className="code-punct">(</span><span className="code-arg">OTP</span><span className="code-punct">)</span>
+                  </span>
+                </span>
+              </span>
               <em>
                 {t('home.heroTitleEm')}
                 <br />
@@ -51,58 +90,42 @@ export function HomePage() {
               </em>
             </h1>
             <p className="hero-copy">{t('home.heroCopy')}</p>
-            <p className="hero-price">
-              <strong>{t('home.heroPrice')}</strong>
-              <span>{t('home.heroPriceUnit')}</span>
-              <small>{t('home.heroPriceNote')}</small>
-            </p>
             <div className="hero-actions">
               <Link className="button-primary" href="/register/diorarepot">
+                <WhatsAppBubble size={16} className="hero-wa-mark-on-lime" />
                 {t('home.heroCta')} <ArrowRight size={16} />
               </Link>
               <Link className="button-ghost" href="/docs">
                 {t('home.heroDocs')} <ArrowRight size={16} />
               </Link>
             </div>
-            <ul className="hero-checks">
-              <li>
-                <Check size={14} /> {t('home.heroCheck1')}
-              </li>
-              <li>
-                <Check size={14} /> {t('home.heroCheck2')}
-              </li>
-              <li>
-                <Check size={14} /> {t('home.heroCheck3')}
-              </li>
-            </ul>
-          </div>
-          <div className="hero-proof" aria-hidden="true">
-            <div className="proof-code">
-              <div className="proof-code-bar">
-                <span />
-                <span />
-                <span />
-                <strong>{t('home.codeTitle')}</strong>
+            <div className="hero-notes">
+              <div className="proof-card">
+                <span className="note-avatar note-avatar-wa">
+                  <WhatsAppBubble size={18} />
+                </span>
+                <div>
+                  <strong>{t('home.deliveredKicker')}</strong>
+                  <span>{t('home.deliveredBody')}</span>
+                </div>
               </div>
-              <pre>{`curl -X POST https://api.orarepot.com/v1/otp/send \\
-  -H "Authorization: Bearer $ORAREPOT_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{"to":"+628123456789","template":"otp_login"}'
-
-# { "status": "success", "cost_idr": 600 }`}</pre>
-            </div>
-            <div className="proof-card">
-              <Check size={16} />
-              <div>
-                <strong>{t('home.deliveredKicker')}</strong>
-                <span>{t('home.deliveredBody')}</span>
+              <div className="proof-card">
+                <span className="note-avatar note-avatar-ok">
+                  <Check size={16} />
+                </span>
+                <div>
+                  <strong>{t('home.ppobKicker')}</strong>
+                  <span>{t('home.ppobBody')}</span>
+                </div>
               </div>
-            </div>
-            <div className="proof-card proof-card-ppob">
-              <Ticket size={16} />
-              <div>
-                <strong>{t('home.ppobKicker')}</strong>
-                <span>{t('home.ppobBody')}</span>
+              <div className="proof-card">
+                <span className="note-avatar note-avatar-game">
+                  <Gamepad2 size={16} />
+                </span>
+                <div>
+                  <strong>{t('home.note3Kicker')}</strong>
+                  <span>{t('home.note3Body')}</span>
+                </div>
               </div>
             </div>
           </div>

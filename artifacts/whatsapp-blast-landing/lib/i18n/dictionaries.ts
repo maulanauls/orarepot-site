@@ -40,8 +40,8 @@ export const id: Messages = {
     tagline: 'AI · Messaging · Digital goods.',
   },
   home: {
-    heroKicker: 'OTP WhatsApp · marketplace pulsa',
-    heroTitleBefore: 'OTP WhatsApp,',
+    heroKicker: 'API OTP · marketplace pulsa',
+    heroTitleBefore: 'API ONE TIME PASSWORD',
     heroTitleEm: 'beli pulsa',
     heroTitleEm2: '& voucher.',
     heroCopy:
@@ -61,6 +61,8 @@ export const id: Messages = {
     deliveredBody: 'Kode verifikasi: 4 8 2 1 9 3',
     ppobKicker: 'Host-to-host',
     ppobBody: 'Pulsa 50.000 · sukses',
+    note3Kicker: 'Voucher game',
+    note3Body: '86 Diamond · sukses',
     seeAllProducts: 'Lihat semua produk',
     chatTitle: 'Ora Repot OTP',
     chatOnline: 'online · kode terkirim',
@@ -787,8 +789,8 @@ export const en: Messages = {
     tagline: 'AI · Messaging · Digital goods.',
   },
   home: {
-    heroKicker: 'WhatsApp OTP · airtime marketplace',
-    heroTitleBefore: 'WhatsApp OTP,',
+    heroKicker: 'OTP API · airtime marketplace',
+    heroTitleBefore: 'API ONE TIME PASSWORD',
     heroTitleEm: 'buy airtime',
     heroTitleEm2: '& vouchers.',
     heroCopy:
@@ -808,6 +810,8 @@ export const en: Messages = {
     deliveredBody: 'Your verification code: 4 8 2 1 9 3',
     ppobKicker: 'Host-to-host',
     ppobBody: 'Airtime 50,000 · success',
+    note3Kicker: 'Game voucher',
+    note3Body: '86 diamonds · success',
     seeAllProducts: 'See all products',
     chatTitle: 'Ora Repot OTP',
     chatOnline: 'online · code sent',
