@@ -31,6 +31,7 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
       "/biller/auth/register",
       "/biller/auth/enter",
       "/biller/auth/login",
+      "/biller/auth/google",
       "/biller/catalog",
       "/billing/payments/midtrans",
       "/v1/",
