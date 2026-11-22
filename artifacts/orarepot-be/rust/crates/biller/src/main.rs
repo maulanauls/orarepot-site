@@ -60,6 +60,8 @@ struct ProductOut {
 struct CategoryRow {
     business_module_idf: Uuid,
     name: String,
+    /// Most common non-empty `mt_lookup.business_module_cat` for this module.
+    business_module_cat: Option<String>,
 }
 
 #[derive(Debug, sqlx::FromRow)]
@@ -132,15 +134,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 async fn catalog(State(state): State<AppState>) -> Result<Json<CatalogOut>, orarepot_common::AppError> {
     let rows = sqlx::query_as::<_, CategoryRow>(
         r#"
-        SELECT DISTINCT ON (business_module_idf)
-            business_module_idf,
-            corporate_business_module_name AS name
-        FROM mt_corporate_business_module
-        WHERE corporate_business_parent_module_idf IS NOT NULL
-          AND corporate_business_module_name IS NOT NULL
-          AND COALESCE(corporate_business_module_status, true) = true
-          AND corporate_business_module_name NOT IN ('Cek Koin', 'Referral')
-        ORDER BY business_module_idf, corporate_business_module_sort NULLS LAST
+        SELECT DISTINCT ON (m.business_module_idf)
+            m.business_module_idf,
+            m.corporate_business_module_name AS name,
+            (
+                SELECT l.business_module_cat
+                FROM mt_lookup l
+                WHERE l.business_module_idf = m.business_module_idf
+                  AND NULLIF(BTRIM(l.business_module_cat), '') IS NOT NULL
+                GROUP BY l.business_module_cat
+                ORDER BY COUNT(*) DESC, l.business_module_cat
+                LIMIT 1
+            ) AS business_module_cat
+        FROM mt_corporate_business_module m
+        WHERE m.corporate_business_parent_module_idf IS NOT NULL
+          AND m.corporate_business_module_name IS NOT NULL
+          AND COALESCE(m.corporate_business_module_status, true) = true
+          AND m.corporate_business_module_name NOT IN ('Cek Koin', 'Referral')
+        ORDER BY m.business_module_idf, m.corporate_business_module_sort NULLS LAST
         "#,
     )
     .fetch_all(&state.pool)
@@ -148,7 +159,16 @@ async fn catalog(State(state): State<AppState>) -> Result<Json<CatalogOut>, orar
 
     let mut categories = Vec::with_capacity(rows.len());
     for row in rows {
-        let kind = kind_of(&row.name);
+        let cat = row
+            .business_module_cat
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty());
+        // Label must come from mt_lookup.business_module_cat when present — never invented.
+        let label = cat
+            .map(|value| value.to_string())
+            .unwrap_or_else(|| row.name.trim().to_string());
+        let kind = kind_of(cat.unwrap_or(row.name.as_str()));
         let brands = load_brands(&state.pool, row.business_module_idf).await?;
         if brands.is_empty() && kind != "pulsa" && kind != "data" && kind != "pln" && kind != "game" {
             continue;
@@ -156,7 +176,7 @@ async fn catalog(State(state): State<AppState>) -> Result<Json<CatalogOut>, orar
         categories.push(CategoryOut {
             id: row.business_module_idf,
             key: kind.to_string(),
-            label: label_of(kind, &row.name),
+            label,
             kind: kind.to_string(),
             brands,
         });
@@ -358,8 +378,8 @@ async fn load_products(
     .map_err(orarepot_common::AppError::from)
 }
 
-fn kind_of(name: &str) -> &'static str {
-    let value = name.to_uppercase();
+fn kind_of(name_or_cat: &str) -> &'static str {
+    let value = name_or_cat.to_uppercase();
     if value.contains("GAME") {
         "game"
     } else if value.contains("PLN") {
@@ -372,17 +392,6 @@ fn kind_of(name: &str) -> &'static str {
         "emoney"
     } else {
         "other"
-    }
-}
-
-fn label_of(kind: &str, name: &str) -> String {
-    match kind {
-        "pulsa" => "PULSA".into(),
-        "data" => "DATA".into(),
-        "pln" => "PLN TOKEN".into(),
-        "game" => "GAME KEY".into(),
-        "emoney" => "E-MONEY".into(),
-        _ => name.trim().to_uppercase(),
     }
 }
 
