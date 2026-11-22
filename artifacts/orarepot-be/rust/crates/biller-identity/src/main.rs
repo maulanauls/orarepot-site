@@ -31,6 +31,8 @@ const OTP_MAX_ATTEMPTS: u32 = 5;
 /// After logout, password login alone is enough for this window. Past it, OTP
 /// is required again (same WhatsApp check as first-time register).
 const OTP_RELOGIN_AFTER_LOGOUT_SECS: i64 = 3 * 24 * 60 * 60;
+/// Pending Google account waiting for WhatsApp phone bind + OTP.
+const GOOGLE_PENDING_TTL_SECS: u64 = 15 * 60;
 
 #[derive(Clone)]
 struct AppState {
@@ -181,6 +183,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/biller/auth/enter/verify", post(enter_verify))
         .route("/biller/auth/login", post(login))
         .route("/biller/auth/google", post(google_login))
+        .route("/biller/auth/google/phone", post(google_phone))
         .route("/biller/auth/logout", post(logout))
         .route("/biller/auth/me", get(me))
         .with_state(state)
@@ -507,9 +510,18 @@ struct Challenge {
     password_hash: String,
     code_digest: String,
     attempts: u32,
-    /// `claim` attaches a first web password; `session` only proves the phone for login/register.
+    /// `claim` attaches a first web password; `session` only proves the phone for login/register;
+    /// `google_bind` attaches a WhatsApp number after Google sign-in.
     #[serde(default = "default_challenge_kind")]
     kind: String,
+    /// International phone (62…) for `google_bind` challenges.
+    #[serde(default)]
+    phone: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct GooglePending {
+    user_id: Uuid,
 }
 
 /// Send a WhatsApp OTP that only unlocks a session (register / re-login).
@@ -543,6 +555,7 @@ async fn start_session_otp(
         code_digest: otp_digest(&challenge, &code),
         attempts: 0,
         kind: "session".into(),
+        phone: None,
     };
     let raw = serde_json::to_string(&pending).map_err(|e| AppError::internal(e.to_string()))?;
     let _: () = redis::cmd("SET")
@@ -655,6 +668,7 @@ async fn start_claim(
         code_digest: otp_digest(&challenge, &code),
         attempts: 0,
         kind: "claim".into(),
+        phone: None,
     };
     let raw = serde_json::to_string(&pending).map_err(|e| AppError::internal(e.to_string()))?;
     let _: () = redis::cmd("SET")
@@ -832,6 +846,49 @@ async fn enter_verify(
              FROM mt_users WHERE users_idf = $1 AND users_status = 1",
         )
         .bind(pending.user_id)
+        .fetch_optional(&state.pool)
+        .await?
+        .ok_or_else(|| AppError::unauthorized("user not found"))?;
+        clear_last_logout(&state, user.users_idf).await?;
+        return issue(&state, user).await;
+    }
+    if pending.kind == "google_bind" {
+        let phone_intl_value = pending
+            .phone
+            .as_deref()
+            .map(str::trim)
+            .filter(|v| !v.is_empty())
+            .ok_or_else(|| AppError::bad("nomor telepon tidak valid"))?
+            .to_string();
+        let local = normalize_phone(&phone_intl_value)
+            .ok_or_else(|| AppError::bad("nomor telepon tidak valid"))?;
+        let taken: bool = sqlx::query_scalar(
+            "SELECT EXISTS(
+                SELECT 1 FROM mt_users
+                WHERE user_phonenumber = ANY($1)
+                  AND users_idf <> $2
+                  AND users_status = 1
+             )",
+        )
+        .bind(phone_variants(&local).to_vec())
+        .bind(pending.user_id)
+        .fetch_one(&state.pool)
+        .await?;
+        if taken {
+            return Err(AppError::conflict("nomor WhatsApp sudah dipakai akun lain"));
+        }
+        let chat_id = format!("{phone_intl_value}@c.us");
+        let user = sqlx::query_as::<_, UserOut>(
+            "UPDATE mt_users
+             SET user_phonenumber = $2,
+                 users_chat_id = COALESCE(NULLIF(BTRIM(users_chat_id), ''), $3),
+                 users_updated_date = now()
+             WHERE users_idf = $1 AND users_status = 1
+             RETURNING users_idf, users_fullname, users_email, user_phonenumber",
+        )
+        .bind(pending.user_id)
+        .bind(&phone_intl_value)
+        .bind(&chat_id)
         .fetch_optional(&state.pool)
         .await?
         .ok_or_else(|| AppError::unauthorized("user not found"))?;
@@ -1200,7 +1257,7 @@ async fn upsert_google_user(state: &AppState, profile: &GoogleProfile) -> Result
 async fn google_login(
     State(state): State<AppState>,
     Json(body): Json<GoogleBody>,
-) -> Result<Json<AuthOut>, AppError> {
+) -> Result<Json<Value>, AppError> {
     if state.google_client_id.is_empty() || state.google_client_secret.is_empty() {
         return Err(AppError::internal("Google OAuth belum dikonfigurasi"));
     }
@@ -1210,7 +1267,154 @@ async fn google_login(
     }
     let profile = exchange_google_code(&state, code).await?;
     let user = upsert_google_user(&state, &profile).await?;
-    issue(&state, user).await
+    let has_phone = user
+        .user_phonenumber
+        .as_deref()
+        .map(str::trim)
+        .is_some_and(|v| !v.is_empty());
+    if !has_phone {
+        return start_google_phone_pending(&state, user).await;
+    }
+    auth_json(issue(&state, user).await?)
+}
+
+#[derive(Deserialize)]
+struct GooglePhoneBody {
+    pending: String,
+    phone: String,
+}
+
+async fn start_google_phone_pending(
+    state: &AppState,
+    user: UserOut,
+) -> Result<Json<Value>, AppError> {
+    let pending = Uuid::new_v4().to_string();
+    let raw = serde_json::to_string(&GooglePending {
+        user_id: user.users_idf,
+    })
+    .map_err(|e| AppError::internal(e.to_string()))?;
+    let mut redis = state.redis.clone();
+    let _: () = redis::cmd("SET")
+        .arg(format!("biller:google:pending:{pending}"))
+        .arg(raw)
+        .arg("EX")
+        .arg(GOOGLE_PENDING_TTL_SECS)
+        .query_async(&mut redis)
+        .await
+        .map_err(|e| AppError::internal(e.to_string()))?;
+    Ok(Json(json!({
+        "phone_required": true,
+        "pending": pending,
+        "email": user.users_email,
+        "expires_in": GOOGLE_PENDING_TTL_SECS,
+    })))
+}
+
+/// After Google sign-in without a phone: collect WhatsApp number and send OTP.
+async fn google_phone(
+    State(state): State<AppState>,
+    Json(body): Json<GooglePhoneBody>,
+) -> Result<Json<Value>, AppError> {
+    let pending_id = body.pending.trim();
+    if Uuid::parse_str(pending_id).is_err() {
+        return Err(AppError::bad("sesi Google tidak valid, masuk ulang"));
+    }
+    let local = normalize_phone(&body.phone)
+        .ok_or_else(|| AppError::bad("nomor WhatsApp tidak valid"))?;
+    let phone_intl_value = phone_intl(&local);
+    let key = format!("biller:google:pending:{pending_id}");
+    let mut redis = state.redis.clone();
+    let raw: Option<String> = redis::cmd("GET")
+        .arg(&key)
+        .query_async(&mut redis)
+        .await
+        .map_err(|e| AppError::internal(e.to_string()))?;
+    let Some(raw) = raw else {
+        return Err(AppError::bad("sesi Google sudah kedaluwarsa, masuk ulang"));
+    };
+    let google_pending: GooglePending =
+        serde_json::from_str(&raw).map_err(|e| AppError::internal(e.to_string()))?;
+
+    let taken: bool = sqlx::query_scalar(
+        "SELECT EXISTS(
+            SELECT 1 FROM mt_users
+            WHERE user_phonenumber = ANY($1)
+              AND users_idf <> $2
+              AND users_status = 1
+         )",
+    )
+    .bind(phone_variants(&local).to_vec())
+    .bind(google_pending.user_id)
+    .fetch_one(&state.pool)
+    .await?;
+    if taken {
+        return Err(AppError::conflict("nomor WhatsApp sudah dipakai akun lain"));
+    }
+
+    let user_id = google_pending.user_id;
+    let cooling: Option<String> = redis::cmd("SET")
+        .arg(format!("biller:otp:cool:{user_id}"))
+        .arg("1")
+        .arg("NX")
+        .arg("EX")
+        .arg(OTP_RESEND_SECS)
+        .query_async(&mut redis)
+        .await
+        .map_err(|e| AppError::internal(e.to_string()))?;
+    if cooling.is_none() {
+        return Err(AppError::conflict(
+            "kode baru saja dikirim, tunggu 1 menit sebelum minta lagi",
+        ));
+    }
+
+    let challenge = Uuid::new_v4().to_string();
+    let code = format!("{:06}", rand::thread_rng().gen_range(0..1_000_000));
+    let otp_pending = Challenge {
+        user_id,
+        email: None,
+        password_hash: String::new(),
+        code_digest: otp_digest(&challenge, &code),
+        attempts: 0,
+        kind: "google_bind".into(),
+        phone: Some(phone_intl_value.clone()),
+    };
+    let otp_raw =
+        serde_json::to_string(&otp_pending).map_err(|e| AppError::internal(e.to_string()))?;
+    let _: () = redis::cmd("SET")
+        .arg(format!("biller:otp:{challenge}"))
+        .arg(otp_raw)
+        .arg("EX")
+        .arg(OTP_TTL_SECS)
+        .query_async(&mut redis)
+        .await
+        .map_err(|e| AppError::internal(e.to_string()))?;
+
+    let chat_id = format!("{phone_intl_value}@c.us");
+    if let Err(err) = send_otp(&state, &phone_intl_value, &chat_id, &code).await {
+        let _: Result<(), _> = redis::cmd("DEL")
+            .arg(format!("biller:otp:{challenge}"))
+            .arg(format!("biller:otp:cool:{user_id}"))
+            .query_async(&mut redis)
+            .await;
+        return Err(err);
+    }
+
+    // Keep Google pending alive while OTP is outstanding.
+    let _: () = redis::cmd("EXPIRE")
+        .arg(&key)
+        .arg(GOOGLE_PENDING_TTL_SECS)
+        .query_async(&mut redis)
+        .await
+        .map_err(|e| AppError::internal(e.to_string()))?;
+
+    Ok(Json(json!({
+        "otp_required": true,
+        "challenge": challenge,
+        "expires_in": OTP_TTL_SECS,
+        "resend_in": OTP_RESEND_SECS,
+        "pending": pending_id,
+        "phone": phone_intl_value,
+    })))
 }
 
 async fn issue(state: &AppState, user: UserOut) -> Result<Json<AuthOut>, AppError> {
