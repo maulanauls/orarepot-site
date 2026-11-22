@@ -28,6 +28,9 @@ const TOKEN_LIFETIME_DAYS: i64 = 3650;
 const OTP_TTL_SECS: u64 = 5 * 60;
 const OTP_RESEND_SECS: u64 = 60;
 const OTP_MAX_ATTEMPTS: u32 = 5;
+/// After logout, password login alone is enough for this window. Past it, OTP
+/// is required again (same WhatsApp check as first-time register).
+const OTP_RELOGIN_AFTER_LOGOUT_SECS: i64 = 3 * 24 * 60 * 60;
 
 #[derive(Clone)]
 struct AppState {
@@ -285,8 +288,13 @@ fn contact_of(body: &RegisterBody) -> Result<(Option<String>, Option<String>), A
 async fn register(
     State(state): State<AppState>,
     Json(body): Json<RegisterBody>,
-) -> Result<Json<AuthOut>, AppError> {
+) -> Result<Json<Value>, AppError> {
     let (email, phone) = contact_of(&body)?;
+    let Some(local_phone) = phone.clone() else {
+        return Err(AppError::bad(
+            "nomor WhatsApp wajib diisi untuk verifikasi OTP saat daftar",
+        ));
+    };
     let name_source = if body.full_name.trim().is_empty() {
         email.clone().or(phone.clone()).unwrap_or_default()
     } else {
@@ -307,18 +315,16 @@ async fn register(
             return Err(AppError::conflict("email sudah terdaftar"));
         }
     }
-    if let Some(local) = &phone {
-        let taken: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM mt_users WHERE user_phonenumber = ANY($1))",
-        )
-        .bind(phone_variants(local).to_vec())
-        .fetch_one(&state.pool)
-        .await?;
-        if taken {
-            return Err(AppError::conflict("nomor WhatsApp sudah terdaftar"));
-        }
+    let taken: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM mt_users WHERE user_phonenumber = ANY($1))",
+    )
+    .bind(phone_variants(&local_phone).to_vec())
+    .fetch_one(&state.pool)
+    .await?;
+    if taken {
+        return Err(AppError::conflict("nomor WhatsApp sudah terdaftar"));
     }
-    let phone = phone.as_deref().map(phone_intl);
+    let phone_intl_value = phone_intl(&local_phone);
     let hash = hash_password(&body.password)?;
     let user = sqlx::query_as::<_, UserOut>(
         "INSERT INTO mt_users (
@@ -332,7 +338,7 @@ async fn register(
     .bind(&last)
     .bind(&email)
     .bind(&hash)
-    .bind(&phone)
+    .bind(&phone_intl_value)
     .fetch_one(&state.pool)
     .await
     .map_err(|e| {
@@ -343,7 +349,18 @@ async fn register(
             AppError::from(e)
         }
     })?;
-    issue(&state, user).await
+    // Force OTP on any later password login until the first WhatsApp verify succeeds.
+    {
+        let mut redis = state.redis.clone();
+        let _: () = redis::cmd("SET")
+            .arg(format!("biller:last_logout:{}", user.users_idf))
+            .arg("0")
+            .query_async(&mut redis)
+            .await
+            .map_err(|e| AppError::internal(e.to_string()))?;
+    }
+    // First-time register always proves the WhatsApp number before a session is issued.
+    start_session_otp(&state, user.users_idf, &phone_intl_value, &phone_intl_value).await
 }
 
 #[derive(Deserialize)]
@@ -435,7 +452,7 @@ async fn enter(
             return auth_json(issue(&state, row.into_user()).await?);
         }
     }
-    let auth = register(
+    register(
         State(state),
         Json(RegisterBody {
             full_name: if !email.is_empty() {
@@ -449,8 +466,7 @@ async fn enter(
             password: body.password,
         }),
     )
-    .await?;
-    auth_json(auth)
+    .await
 }
 
 fn auth_json(auth: Json<AuthOut>) -> Result<Json<Value>, AppError> {
@@ -480,6 +496,10 @@ impl ClaimRow {
     }
 }
 
+fn default_challenge_kind() -> String {
+    "claim".into()
+}
+
 #[derive(Serialize, Deserialize)]
 struct Challenge {
     user_id: Uuid,
@@ -487,6 +507,92 @@ struct Challenge {
     password_hash: String,
     code_digest: String,
     attempts: u32,
+    /// `claim` attaches a first web password; `session` only proves the phone for login/register.
+    #[serde(default = "default_challenge_kind")]
+    kind: String,
+}
+
+/// Send a WhatsApp OTP that only unlocks a session (register / re-login).
+async fn start_session_otp(
+    state: &AppState,
+    user_id: Uuid,
+    phone_intl_value: &str,
+    chat_id: &str,
+) -> Result<Json<Value>, AppError> {
+    let mut redis = state.redis.clone();
+    let cooling: Option<String> = redis::cmd("SET")
+        .arg(format!("biller:otp:cool:{user_id}"))
+        .arg("1")
+        .arg("NX")
+        .arg("EX")
+        .arg(OTP_RESEND_SECS)
+        .query_async(&mut redis)
+        .await
+        .map_err(|e| AppError::internal(e.to_string()))?;
+    if cooling.is_none() {
+        return Err(AppError::conflict(
+            "kode baru saja dikirim, tunggu 1 menit sebelum minta lagi",
+        ));
+    }
+    let challenge = Uuid::new_v4().to_string();
+    let code = format!("{:06}", rand::thread_rng().gen_range(0..1_000_000));
+    let pending = Challenge {
+        user_id,
+        email: None,
+        password_hash: String::new(),
+        code_digest: otp_digest(&challenge, &code),
+        attempts: 0,
+        kind: "session".into(),
+    };
+    let raw = serde_json::to_string(&pending).map_err(|e| AppError::internal(e.to_string()))?;
+    let _: () = redis::cmd("SET")
+        .arg(format!("biller:otp:{challenge}"))
+        .arg(raw)
+        .arg("EX")
+        .arg(OTP_TTL_SECS)
+        .query_async(&mut redis)
+        .await
+        .map_err(|e| AppError::internal(e.to_string()))?;
+    if let Err(err) = send_otp(state, phone_intl_value, chat_id, &code).await {
+        let _: Result<(), _> = redis::cmd("DEL")
+            .arg(format!("biller:otp:{challenge}"))
+            .arg(format!("biller:otp:cool:{user_id}"))
+            .query_async(&mut redis)
+            .await;
+        return Err(err);
+    }
+    Ok(Json(json!({
+        "otp_required": true,
+        "challenge": challenge,
+        "expires_in": OTP_TTL_SECS,
+        "resend_in": OTP_RESEND_SECS,
+    })))
+}
+
+async fn needs_relogin_otp(state: &AppState, user_id: Uuid) -> Result<bool, AppError> {
+    let mut redis = state.redis.clone();
+    let raw: Option<String> = redis::cmd("GET")
+        .arg(format!("biller:last_logout:{user_id}"))
+        .query_async(&mut redis)
+        .await
+        .map_err(|e| AppError::internal(e.to_string()))?;
+    let Some(raw) = raw else {
+        return Ok(false);
+    };
+    let Ok(ts) = raw.parse::<i64>() else {
+        return Ok(false);
+    };
+    Ok(Utc::now().timestamp() - ts >= OTP_RELOGIN_AFTER_LOGOUT_SECS)
+}
+
+async fn clear_last_logout(state: &AppState, user_id: Uuid) -> Result<(), AppError> {
+    let mut redis = state.redis.clone();
+    let _: () = redis::cmd("DEL")
+        .arg(format!("biller:last_logout:{user_id}"))
+        .query_async(&mut redis)
+        .await
+        .map_err(|e| AppError::internal(e.to_string()))?;
+    Ok(())
 }
 
 /// A WhatsApp-created account has no password yet. Owning the phone number is
@@ -548,6 +654,7 @@ async fn start_claim(
         password_hash: hash_password(password)?,
         code_digest: otp_digest(&challenge, &code),
         attempts: 0,
+        kind: "claim".into(),
     };
     let raw = serde_json::to_string(&pending).map_err(|e| AppError::internal(e.to_string()))?;
     let _: () = redis::cmd("SET")
@@ -719,6 +826,18 @@ async fn enter_verify(
         .query_async(&mut redis)
         .await
         .map_err(|e| AppError::internal(e.to_string()))?;
+    if pending.kind == "session" {
+        let user = sqlx::query_as::<_, UserOut>(
+            "SELECT users_idf, users_fullname, users_email, user_phonenumber
+             FROM mt_users WHERE users_idf = $1 AND users_status = 1",
+        )
+        .bind(pending.user_id)
+        .fetch_optional(&state.pool)
+        .await?
+        .ok_or_else(|| AppError::unauthorized("user not found"))?;
+        clear_last_logout(&state, user.users_idf).await?;
+        return issue(&state, user).await;
+    }
     let user = sqlx::query_as::<_, UserOut>(
         "UPDATE mt_users
          SET users_credentials = $2,
@@ -741,20 +860,21 @@ async fn enter_verify(
         }
     })?
     .ok_or_else(|| AppError::conflict("akun ini sudah punya kata sandi, silakan masuk"))?;
+    clear_last_logout(&state, user.users_idf).await?;
     issue(&state, user).await
 }
 
 async fn login(
     State(state): State<AppState>,
     Json(body): Json<LoginBody>,
-) -> Result<Json<AuthOut>, AppError> {
+) -> Result<Json<Value>, AppError> {
     let identifier = identifier_of(&body.identifier, &body.email);
     if identifier.is_empty() || body.password.is_empty() {
         return Err(AppError::unauthorized("email atau kata sandi salah"));
     }
     let row = if identifier.contains('@') {
         sqlx::query_as::<_, AuthRow>(
-            "SELECT users_idf, users_fullname, users_email, user_phonenumber, users_credentials
+            "SELECT users_idf, users_fullname, users_email, user_phonenumber, users_credentials, users_chat_id
              FROM mt_users
              WHERE lower(users_email) = $1 AND users_status = 1",
         )
@@ -763,7 +883,7 @@ async fn login(
         .await?
     } else if let Some(phone) = normalize_phone(&identifier) {
         sqlx::query_as::<_, AuthRow>(
-            "SELECT users_idf, users_fullname, users_email, user_phonenumber, users_credentials
+            "SELECT users_idf, users_fullname, users_email, user_phonenumber, users_credentials, users_chat_id
              FROM mt_users
              WHERE user_phonenumber = ANY($1) AND users_status = 1
              ORDER BY
@@ -791,7 +911,26 @@ async fn login(
         .bind(row.users_idf)
         .execute(&state.pool)
         .await?;
-    issue(&state, row.into_user()).await
+    if needs_relogin_otp(&state, row.users_idf).await? {
+        let local = row
+            .user_phonenumber
+            .as_deref()
+            .and_then(normalize_phone)
+            .ok_or_else(|| {
+                AppError::conflict(
+                    "akun ini perlu verifikasi WhatsApp, lengkapi nomor di akun dulu",
+                )
+            })?;
+        let phone = phone_intl(&local);
+        let chat_id = row
+            .users_chat_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .unwrap_or(phone.as_str());
+        return start_session_otp(&state, row.users_idf, &phone, chat_id).await;
+    }
+    auth_json(issue(&state, row.into_user()).await?)
 }
 
 #[derive(sqlx::FromRow)]
@@ -801,6 +940,7 @@ struct AuthRow {
     users_email: Option<String>,
     user_phonenumber: Option<String>,
     users_credentials: Option<String>,
+    users_chat_id: Option<String>,
 }
 
 impl AuthRow {
@@ -839,19 +979,27 @@ async fn logout(
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "))
         .ok_or_else(|| AppError::unauthorized("missing token"))?;
-    let jti = jsonwebtoken::decode::<Claims>(
+    let claims = jsonwebtoken::decode::<Claims>(
         token,
         &jsonwebtoken::DecodingKey::from_secret(state.cfg.jwt_secret.as_bytes()),
         &jsonwebtoken::Validation::default(),
     )
-    .map(|data| data.claims.jti)
+    .map(|data| data.claims)
     .map_err(|_| AppError::unauthorized("invalid token"))?;
     let mut redis = state.redis.clone();
     let _: () = redis::cmd("DEL")
-        .arg(format!("biller:session:{jti}"))
+        .arg(format!("biller:session:{}", claims.jti))
         .query_async(&mut redis)
         .await
         .map_err(|e| AppError::internal(e.to_string()))?;
+    if let Ok(user_id) = Uuid::parse_str(&claims.sub) {
+        let _: () = redis::cmd("SET")
+            .arg(format!("biller:last_logout:{user_id}"))
+            .arg(Utc::now().timestamp().to_string())
+            .query_async(&mut redis)
+            .await
+            .map_err(|e| AppError::internal(e.to_string()))?;
+    }
     Ok(Json(serde_json::json!({ "ok": true })))
 }
 
