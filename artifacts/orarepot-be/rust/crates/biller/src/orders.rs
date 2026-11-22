@@ -339,6 +339,12 @@ fn upper(value: &Option<String>) -> String {
     value.as_deref().unwrap_or("").trim().to_uppercase()
 }
 
+/// Persist payment/transaction statuses in UPPERCASE so Midtrans lowercase
+/// values (pending/settlement/expire) match domain lookups (SETTLEMENT/EXPIRE).
+fn store_status(value: &str) -> String {
+    value.trim().to_uppercase()
+}
+
 /// unpaid → waiting (QR shown) → processing (paid, Digiflazz running) → success | failed, or expired.
 fn stage_of(row: &OrderRow) -> &'static str {
     match row.status.trim().to_uppercase().as_str() {
@@ -862,7 +868,7 @@ pub async fn pay_order(
             .clone()
             .ok_or_else(|| AppError::internal("pembayaran koin belum dikonfigurasi"))?;
         let meta = json!({ "channel": WEB_NOTE, "payment_provider": "MENUKU_KOIN", "order_id": code, "gross_amount": total });
-        write_payment_rows(&mut tx, &billing, &product, &meta, "MENUKU_KOIN", "koin", total, "pending", None).await?;
+        write_payment_rows(&mut tx, &billing, &product, &meta, "MENUKU_KOIN", "koin", total, "PENDING", None).await?;
         sqlx::query(
             "UPDATE mt_transaction_session SET payment_provider = 'MENUKU_KOIN', transaction_session = 'PAID', transaction_step = 'PAYMENT_METHOD_SELECTED' WHERE billing_code = $1",
         )
@@ -872,7 +878,7 @@ pub async fn pay_order(
         tx.commit().await?;
 
         let payload = json!({
-            "transaction_status": "settlement",
+            "transaction_status": "SETTLEMENT",
             "status_code": "200",
             "payment_type": "koin",
             "order_id": code,
@@ -1003,7 +1009,7 @@ async fn write_payment_rows(
     .bind(provider)
     .bind(payment_type)
     .bind(amount)
-    .bind(status)
+    .bind(store_status(status))
     .bind(external_ref)
     .bind(meta)
     .fetch_one(&mut **tx)
@@ -1018,7 +1024,7 @@ async fn write_payment_rows(
     .bind(billing.billing_id)
     .bind(product.lookup_idf)
     .bind(external_ref)
-    .bind(status)
+    .bind(store_status(status))
     .bind(meta)
     .fetch_one(&mut **tx)
     .await?;
@@ -1109,26 +1115,56 @@ async fn refresh_midtrans(state: &AppState, row: &OrderRow) -> Result<bool, AppE
 }
 
 async fn mark_paid(state: &AppState, row: &OrderRow, status: &Value) -> Result<(), AppError> {
+    let mut tx = state.pool.begin().await?;
     let changed = sqlx::query(
         r#"
         UPDATE mt_payment
-        SET transaction_status = 'settlement', paid_at = now(), settled_at = now(), response_payload = $2
+        SET transaction_status = 'SETTLEMENT', paid_at = now(), settled_at = now(), response_payload = $2
         WHERE billing_id = $1 AND provider = 'MIDTRANS' AND lower(COALESCE(transaction_status, '')) NOT IN ('settlement', 'capture')
         "#,
     )
     .bind(row.billing_id)
     .bind(status)
-    .execute(&state.pool)
+    .execute(&mut *tx)
     .await?
     .rows_affected();
     if changed == 0 {
         return Ok(());
     }
+    // Align transaction + session with WA/n8n so fulfillment can find SETTLEMENT.
+    sqlx::query(
+        r#"
+        UPDATE mt_transaction
+        SET status = 'SETTLEMENT'
+        WHERE billing_id = $1 AND lower(COALESCE(status, '')) NOT IN ('settlement', 'capture', 'success', 'sukses', 'failed', 'gagal')
+        "#,
+    )
+    .bind(row.billing_id)
+    .execute(&mut *tx)
+    .await?;
+    sqlx::query(
+        r#"
+        UPDATE mt_transaction_session
+        SET transaction_session = 'SETTLEMENT'
+        WHERE billing_code = $1
+          AND upper(COALESCE(transaction_session, '')) NOT IN ('SUCCESS', 'FAILED', 'EXPIRE', 'SETTLEMENT')
+        "#,
+    )
+    .bind(&row.billing_code)
+    .execute(&mut *tx)
+    .await?;
+    tx.commit().await?;
+
     // Midtrans also notifies n8n directly; the WhatsApp bot sends this as a fallback and
     // Digiflazz deduplicates on ref_id, so a second delivery does not create a second order.
     if let Some(callback) = &state.pay.paid_callback_url {
+        let tx_status = status
+            .get("transaction_status")
+            .and_then(Value::as_str)
+            .map(store_status)
+            .unwrap_or_else(|| "SETTLEMENT".to_string());
         let payload = json!({
-            "transaction_status": status.get("transaction_status").cloned().unwrap_or(json!("settlement")),
+            "transaction_status": tx_status,
             "status_code": status.get("status_code").cloned().unwrap_or(json!("200")),
             "payment_type": status.get("payment_type").cloned().unwrap_or(json!("qris")),
             "order_id": row.billing_code,
@@ -1163,7 +1199,7 @@ async fn expire_order(pool: &PgPool, billing_id: Uuid, reason: &str) -> Result<(
         .await?;
     sqlx::query("UPDATE mt_payment SET transaction_status = $2 WHERE billing_id = $1 AND provider = 'MIDTRANS'")
         .bind(billing_id)
-        .bind(reason)
+        .bind(store_status(reason))
         .execute(&mut *tx)
         .await?;
     sqlx::query("UPDATE mt_transaction SET status = 'EXPIRE', completed_at = now() WHERE billing_id = $1")

@@ -65,7 +65,7 @@ spring:
             - id: biller
               uri: ${BILLER_URI:http://localhost:8105}
               predicates:
-                - Path=/biller/catalog/**,/biller/orders/**,/biller/wallet/**
+                - Path=/biller/catalog/**,/biller/orders,/biller/orders/**,/biller/wallet,/biller/wallet/**
 
 management:
   endpoints:
