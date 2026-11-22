@@ -13,6 +13,7 @@ const nextConfig: NextConfig = {
   images: {
     formats: ['image/avif', 'image/webp'],
   },
+  assetPrefix: process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || undefined,
 };
 
 export default nextConfig;
